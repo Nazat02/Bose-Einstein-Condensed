@@ -1,0 +1,2064 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BEC — Bose–Einstein Condensate</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
+:root{
+  --deep:#080201;
+  --surface:#0f0302;
+  --panel-bg:rgba(10,2,1,0.97);
+  --panel-w:296px;
+  --header-h:52px;
+  --sidebar-collapsed-w:48px;
+
+  /* Borders */
+  --border:rgba(220,90,40,0.35);
+  --border-hi:rgba(255,150,70,0.65);
+  --divider:rgba(200,70,30,0.20);
+
+  /* Text */
+  --text:#ffe8d6;
+  --text-dim:#e08050;
+  --text-muted:#aa6840;
+  --label:#cc7840;
+
+  /* Accents */
+  --red:#e03020;
+  --orange:#ff7a2f;
+  --amber:#ffb040;
+  --cream:#ffcc88;
+  --ice:#88ccff;
+  --hot:#ff6030;
+  --cold:#6aacff;
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%}
+body{
+  background:var(--deep);color:var(--text);font-family:'Inter',sans-serif;
+  height:100vh;overflow:hidden;user-select:none;
+  -webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;
+}
+
+/* ── Canvases ─────────────────────────────────────────────── */
+#c{position:fixed;inset:0;width:100%;height:100%;display:block;cursor:grab}
+#c:active{cursor:grabbing}
+#c2{position:fixed;inset:0;width:100%;height:100%;display:none;cursor:grab}
+#c2:active{cursor:grabbing}
+
+/* ── Header ───────────────────────────────────────────────── */
+header{
+  position:fixed;top:0;left:0;right:0;z-index:60;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 20px 0 18px;height:var(--header-h);
+  background:rgba(8,2,1,0.98);
+  border-bottom:1px solid var(--divider);
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+}
+.brand{display:flex;align-items:center;gap:10px}
+.brand-bec{
+  font-family:'JetBrains Mono',monospace;
+  font-size:14px;font-weight:600;letter-spacing:.08em;
+  color:var(--amber);text-shadow:0 0 14px rgba(255,176,64,0.45);
+}
+.brand-divider{
+  width:1px;height:14px;background:var(--divider);flex-shrink:0;
+}
+.brand-sub{
+  font-size:10px;font-weight:400;letter-spacing:.14em;
+  color:var(--text-muted);text-transform:uppercase;
+}
+.header-right{display:flex;align-items:center;gap:10px}
+/* Desktop sidebar toggle button in header */
+#sidebarCollapseBtn{
+  display:flex;align-items:center;justify-content:center;
+  width:30px;height:30px;border-radius:5px;
+  border:1px solid var(--border);background:transparent;
+  color:var(--text-muted);cursor:pointer;
+  transition:all .2s;flex-shrink:0;
+  margin-right:4px;
+}
+#sidebarCollapseBtn:hover{background:rgba(255,100,40,0.12);border-color:var(--border-hi);color:var(--amber)}
+#sidebarCollapseBtn svg{display:block;flex-shrink:0}
+
+/* State pill */
+.pill{
+  font-family:'JetBrains Mono',monospace;
+  font-size:8px;font-weight:600;
+  padding:4px 11px;border-radius:4px;
+  border:1px solid currentColor;letter-spacing:.12em;
+  text-transform:uppercase;transition:all .5s;
+  white-space:nowrap;
+}
+.pill.gas{color:#cc4420;border-color:#cc4420}
+.pill.cold{color:var(--amber);border-color:var(--amber)}
+.pill.cond{color:var(--orange);border-color:var(--orange);box-shadow:0 0 10px #ff7a2f60}
+.pill.bec{color:var(--cream);border-color:var(--cream);box-shadow:0 0 14px #ffcc8890,0 0 28px #ff3d2e35;animation:bp 1.8s ease-in-out infinite}
+@keyframes bp{0%,100%{box-shadow:0 0 12px #ffcc8870,0 0 24px #ff3d2e30}50%{box-shadow:0 0 28px #ffe0a0a0,0 0 55px #ff644855}}
+
+/* View toggle */
+#viewToggle{
+  font-family:'JetBrains Mono',monospace;
+  font-size:8px;font-weight:500;letter-spacing:.1em;
+  padding:6px 14px;border-radius:4px;
+  border:1px solid var(--border-hi);
+  color:var(--text-dim);background:transparent;cursor:pointer;
+  transition:all .2s;white-space:nowrap;
+  display:flex;align-items:center;gap:5px;
+}
+#viewToggle svg{flex-shrink:0}
+#viewToggle:hover{background:rgba(255,120,60,0.12);color:var(--amber);border-color:var(--amber)}
+
+/* ── Temperature bar ──────────────────────────────────────── */
+#tBarWrap{
+  position:fixed;bottom:0;left:0;
+  right:var(--panel-w);
+  height:3px;z-index:50;
+  background:rgba(255,60,20,0.10);
+  transition:right .3s cubic-bezier(.4,0,.2,1);
+}
+body.sidebar-collapsed #tBarWrap{right:var(--sidebar-collapsed-w)}
+@media(max-width:600px){
+  #tBarWrap{right:0!important}
+}
+#tBarFill{
+  height:100%;width:100%;
+  background:linear-gradient(90deg,#e03020,#ff7a2f,#ffcc88,#88ccff,#4488ff,#3a60ff);
+  transform-origin:left;
+  transition:transform .4s ease;
+}
+
+/* ── Momentum distribution ────────────────────────────────── */
+.dist-widget{position:fixed;bottom:24px;left:22px;z-index:40}
+.dist-label{
+  font-family:'JetBrains Mono',monospace;
+  font-size:7px;letter-spacing:.16em;
+  color:var(--label);text-transform:uppercase;
+  margin-bottom:5px;padding-left:2px;
+}
+#distCanvas{
+  display:block;width:200px;height:72px;
+  border:1px solid var(--border);border-radius:5px;
+  background:rgba(8,2,1,0.92);backdrop-filter:blur(10px);
+}
+.interact-hint{
+  margin-top:6px;padding-left:2px;
+  font-family:'JetBrains Mono',monospace;
+  font-size:7px;letter-spacing:.1em;
+  color:rgba(200,80,40,0.38);
+  pointer-events:none;
+}
+
+/* ═══════════════════════════════════════
+   DESKTOP SIDEBAR (right panel)
+═══════════════════════════════════════ */
+.panel{
+  position:fixed;top:var(--header-h);right:0;bottom:0;
+  width:var(--panel-w);z-index:40;
+  background:var(--panel-bg);
+  border-left:1px solid var(--border);
+  backdrop-filter:blur(20px);
+  -webkit-backdrop-filter:blur(20px);
+  display:flex;flex-direction:column;
+  overflow:hidden;
+  transition:width .3s cubic-bezier(.4,0,.2,1);
+}
+/* Collapsed desktop sidebar — slim icon rail */
+body.sidebar-collapsed .panel{
+  width:var(--sidebar-collapsed-w);
+}
+body.sidebar-collapsed .panel .panel-scroll{
+  opacity:0;pointer-events:none;
+}
+body.sidebar-collapsed .panel .sidebar-icons{
+  opacity:1;pointer-events:auto;
+}
+.sidebar-icons{
+  position:absolute;top:0;left:0;right:0;bottom:0;
+  display:flex;flex-direction:column;align-items:center;
+  padding:14px 0;gap:4px;
+  opacity:0;pointer-events:none;
+  transition:opacity .2s;
+}
+.sidebar-icon-btn{
+  width:32px;height:32px;
+  display:flex;align-items:center;justify-content:center;
+  border-radius:6px;border:1px solid transparent;
+  background:transparent;color:var(--text-muted);
+  cursor:pointer;transition:all .18s;
+  flex-shrink:0;
+}
+.sidebar-icon-btn:hover{
+  background:rgba(255,100,40,0.12);
+  border-color:var(--border);
+  color:var(--amber);
+}
+.sidebar-icon-btn svg{display:block;flex-shrink:0}
+
+/* Panel scroll content */
+.panel-scroll{
+  flex:1;overflow-y:auto;overflow-x:hidden;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;
+  transition:opacity .2s;
+  scrollbar-width:thin;
+  scrollbar-color:rgba(200,70,30,0.25) transparent;
+}
+.panel-scroll::-webkit-scrollbar{width:3px}
+.panel-scroll::-webkit-scrollbar-track{background:transparent}
+.panel-scroll::-webkit-scrollbar-thumb{background:rgba(200,70,30,0.28);border-radius:2px}
+
+/* Panel sections */
+.ps{padding:16px 18px;border-bottom:1px solid var(--divider)}
+.ps:last-child{border-bottom:none}
+.ps-label{
+  font-family:'JetBrains Mono',monospace;
+  font-size:7px;font-weight:600;letter-spacing:.22em;
+  color:var(--text-muted);text-transform:uppercase;
+  margin-bottom:12px;
+  display:flex;align-items:center;gap:6px;
+}
+.ps-label::after{
+  content:'';flex:1;height:1px;
+  background:var(--divider);
+}
+
+/* ── Stats grid ───────────────────────────────────────────── */
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+
+.stat-temp{
+  grid-column:1/-1;
+  background:rgba(255,80,30,0.07);
+  border:1px solid rgba(255,100,40,0.30);
+  border-radius:7px;padding:12px 14px;
+  display:flex;align-items:flex-start;justify-content:space-between;
+}
+.stat-temp .sv{
+  font-family:'JetBrains Mono',monospace;
+  font-size:24px;font-weight:600;
+  transition:color .35s;line-height:1;
+}
+.stat-temp .sv .u{font-size:11px;color:var(--label);margin-left:3px;font-weight:400}
+.stat-temp .sl{font-size:7px;letter-spacing:.14em;color:var(--label);text-transform:uppercase;margin-bottom:5px}
+
+.sc{
+  background:rgba(200,60,20,0.07);
+  border:1px solid rgba(200,70,30,0.28);
+  border-radius:7px;padding:10px 12px;
+}
+.sl{font-size:6.5px;letter-spacing:.14em;color:var(--label);text-transform:uppercase;margin-bottom:4px}
+.sv{font-family:'JetBrains Mono',monospace;font-size:15px;font-weight:600;transition:color .35s;white-space:nowrap;color:var(--text)}
+.sv .u{font-size:7px;color:var(--label);margin-left:2px;font-weight:400}
+
+/* ── Sliders ──────────────────────────────────────────────── */
+.ctrl{margin-bottom:14px}
+.ctrl:last-child{margin-bottom:0}
+.ch{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px}
+.cn{font-size:11px;font-weight:400;color:var(--text-dim);line-height:1}
+.cv{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;color:var(--orange)}
+
+.slider-wrap{position:relative;height:22px;display:flex;align-items:center}
+.slider-track{
+  position:absolute;left:0;right:0;height:2px;
+  background:rgba(200,60,20,0.20);border-radius:1px;
+  pointer-events:none;
+}
+.slider-fill{
+  position:absolute;left:0;height:2px;
+  background:linear-gradient(90deg,#e03020,#ff7a2f);
+  border-radius:1px;pointer-events:none;transition:width .05s;
+}
+input[type=range]{
+  -webkit-appearance:none;appearance:none;
+  position:relative;z-index:1;
+  width:100%;height:22px;background:transparent;
+  outline:none;cursor:pointer;margin:0;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;
+  width:16px;height:16px;border-radius:50%;
+  background:radial-gradient(circle at 38% 35%,#ffb080,#c03020);
+  box-shadow:0 0 10px rgba(255,80,40,0.65),0 1px 3px rgba(0,0,0,0.7);
+  border:1.5px solid rgba(255,160,80,0.4);
+  cursor:pointer;transition:transform .15s,box-shadow .15s;
+}
+input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.2);box-shadow:0 0 14px rgba(255,100,40,0.80)}
+input[type=range]::-webkit-slider-thumb:active{transform:scale(1.1)}
+input[type=range]::-moz-range-thumb{
+  width:16px;height:16px;border:none;border-radius:50%;
+  background:radial-gradient(circle at 38% 35%,#ffb080,#c03020);
+  box-shadow:0 0 10px rgba(255,80,40,0.65);cursor:pointer;
+}
+
+/* ── Buttons ─────────────────────────────────────────────── */
+.btn-playback{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:8px}
+.btn-thermal{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:8px}
+.btn-row-2{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:7px}
+
+.btn{
+  font-family:'Inter',sans-serif;font-size:11px;font-weight:500;
+  padding:0 12px;border-radius:5px;
+  border:1px solid rgba(200,70,30,0.30);
+  background:rgba(200,60,20,0.07);
+  color:var(--text-dim);cursor:pointer;
+  transition:all .18s;text-align:center;
+  position:relative;overflow:hidden;
+  white-space:nowrap;
+  min-height:38px;display:flex;align-items:center;justify-content:center;gap:5px;
+}
+.btn svg{flex-shrink:0}
+.btn:hover{background:rgba(255,90,40,0.14);border-color:rgba(255,110,50,0.48);color:var(--text)}
+.btn:active{transform:scale(0.97);background:rgba(255,90,40,0.20)}
+.btn:disabled{opacity:0.22;cursor:not-allowed;pointer-events:none}
+
+.btn.ac{
+  border-color:rgba(255,170,80,0.50);
+  color:var(--amber);
+  background:rgba(255,150,50,0.09);
+}
+.btn.ac:hover{background:rgba(255,150,50,0.15)}
+
+#coolBtn{border-color:rgba(100,190,255,0.35);color:#90ccff;background:rgba(60,130,230,0.06)}
+#coolBtn:hover{background:rgba(80,150,255,0.13);border-color:rgba(130,190,255,0.58);color:#b8e4ff}
+#coolBtn.on{border-color:rgba(130,210,255,0.65);color:#c8eeff;background:rgba(60,140,255,0.12);box-shadow:0 0 14px rgba(80,170,255,0.22)}
+#coolBtn.on::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(160,220,255,.20),transparent);animation:sw .9s linear infinite}
+
+#heatBtn{border-color:rgba(255,130,50,0.35);color:#ff9850;background:rgba(220,90,20,0.06)}
+#heatBtn:hover{background:rgba(255,110,30,0.13);border-color:rgba(255,150,60,0.58);color:#ffba70}
+#heatBtn.on{border-color:rgba(255,160,60,0.65);color:#ffcc80;background:rgba(220,100,20,0.13);box-shadow:0 0 14px rgba(255,120,30,0.22)}
+#heatBtn.on::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,180,80,.22),transparent);animation:sw .65s linear infinite}
+
+@keyframes sw{from{transform:translateX(-100%)}to{transform:translateX(100%)}}
+
+#collideBtn{border-color:rgba(230,60,20,0.40);color:#dd5530}
+#collideBtn:hover{background:rgba(210,50,20,0.13);border-color:rgba(255,90,40,0.52);color:#ff7050}
+
+#vortexBtn{border-color:rgba(190,130,255,0.35);color:#c8a0ff;background:rgba(150,70,230,0.06)}
+#vortexBtn:hover{background:rgba(170,90,255,0.13);border-color:rgba(210,150,255,0.58);color:#ddc0ff}
+#vortexBtn.on{border-color:rgba(210,160,255,0.65);color:#ecd8ff;background:rgba(150,70,230,0.13);box-shadow:0 0 14px rgba(170,90,255,0.25)}
+
+#stirBtn{border-color:rgba(80,210,190,0.35);color:#60d8c8;background:rgba(40,170,150,0.06)}
+#stirBtn:hover{background:rgba(60,190,170,0.13);border-color:rgba(100,230,210,0.58);color:#90ece0}
+#stirBtn.on{border-color:rgba(100,230,210,0.65);color:#b8f4e8;background:rgba(40,170,150,0.13);box-shadow:0 0 14px rgba(60,210,190,0.25)}
+
+#snapBtn{border-color:rgba(255,210,80,0.35);color:#eac040;background:rgba(200,160,20,0.06)}
+#snapBtn:hover{background:rgba(230,180,40,0.13);border-color:rgba(255,230,100,0.58);color:#ffe060}
+
+/* ── Phase diagram ────────────────────────────────────────── */
+#phaseCanvas{display:block;width:100%;height:72px;border-radius:5px;border:1px solid var(--border)}
+
+/* ── Event log ────────────────────────────────────────────── */
+.log{font-family:'JetBrains Mono',monospace;font-size:8px;line-height:1.9;color:var(--text-muted)}
+.le{padding:2px 0 2px 9px;border-left:2px solid rgba(200,60,20,0.22);margin-bottom:3px;border-radius:0 2px 2px 0}
+.le.hi{border-color:var(--cream);color:var(--amber)}
+.le.warn{border-color:var(--red);color:#e05030}
+
+/* ── Presets bar ──────────────────────────────────────────── */
+.presets-bar{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+.preset-btn{
+  font-family:'JetBrains Mono',monospace;
+  font-size:7.5px;font-weight:600;letter-spacing:.08em;
+  padding:0 10px;border-radius:4px;
+  border:1px solid rgba(200,60,20,0.28);
+  background:rgba(200,60,20,0.06);
+  color:var(--text-muted);cursor:pointer;
+  transition:all .18s;text-transform:uppercase;
+  min-height:30px;display:flex;align-items:center;justify-content:center;
+}
+.preset-btn:hover{background:rgba(255,100,40,0.14);border-color:var(--orange);color:var(--amber)}
+
+/* ── Tooltip ──────────────────────────────────────────────── */
+.has-tip{position:relative;cursor:help}
+.has-tip::after{
+  content:attr(data-tip);
+  position:absolute;left:50%;bottom:calc(100% + 8px);
+  transform:translateX(-50%);
+  background:rgba(6,1,0,0.98);
+  border:1px solid var(--border-hi);
+  color:var(--text-dim);
+  font-family:'JetBrains Mono',monospace;
+  font-size:8px;font-weight:400;letter-spacing:.02em;
+  padding:8px 12px;border-radius:5px;
+  white-space:normal;text-align:center;
+  max-width:220px;width:max-content;
+  z-index:200;pointer-events:none;
+  opacity:0;transition:opacity .15s;
+  line-height:1.5;
+}
+.has-tip:hover::after{opacity:1}
+
+/* ── Laser cursor ─────────────────────────────────────────── */
+body.laser-mode #c,body.laser-mode #c2{cursor:crosshair}
+
+/* ── TOF flash overlay ────────────────────────────────────── */
+#tofOverlay{
+  position:fixed;inset:0;z-index:60;pointer-events:none;opacity:0;
+  background:radial-gradient(ellipse at center,rgba(100,190,255,0.20) 0%,transparent 70%);
+  transition:opacity .3s;
+}
+
+/* ════════════════════════════════════
+   MOBILE PANEL TOGGLE
+════════════════════════════════════ */
+#panelToggle{
+  display:none;
+  position:sticky;top:0;left:0;right:0;
+  width:100%;height:50px;
+  align-items:center;justify-content:space-between;
+  padding:0 18px;
+  background:rgba(10,2,1,0.99);
+  border-bottom:1px solid var(--border);
+  z-index:10;cursor:pointer;
+  flex-shrink:0;
+}
+.tog-left{display:flex;align-items:center;gap:8px}
+#panelToggle .tog-icon{
+  color:var(--amber);opacity:0.9;
+  width:20px;height:20px;
+  display:flex;align-items:center;justify-content:center;
+  flex-shrink:0;
+}
+#panelToggle .tog-icon svg{display:block}
+#panelToggle .tog-text{
+  font-family:'JetBrains Mono',monospace;
+  font-size:9px;font-weight:600;letter-spacing:.18em;
+  color:var(--text-dim);text-transform:uppercase;
+}
+.tog-state{
+  font-family:'JetBrains Mono',monospace;
+  font-size:7.5px;font-weight:600;letter-spacing:.12em;
+  color:var(--text-muted);text-transform:uppercase;
+  transition:color .3s;
+}
+.panel.collapsed .tog-state{color:var(--amber)}
+
+/* ════════════════════════════════════
+   MOBILE LAYOUT  ≤ 600px
+════════════════════════════════════ */
+@media(max-width:600px){
+  :root{--panel-w:0px}
+
+  header{
+    padding:0 14px 0 14px;height:50px;
+  }
+  .brand-bec{font-size:13px}
+  .brand-sub{display:none}
+  .brand-divider{display:none}
+  #sidebarCollapseBtn{display:none}
+  #viewToggle{font-size:8px;padding:5px 11px}
+  .pill{font-size:7.5px;padding:3px 9px}
+
+  /* Canvas fills above-fold */
+  #c,#c2{
+    position:fixed;
+    top:50px;
+    bottom:54px;
+    height:auto;
+  }
+
+  /* Panel slides up from bottom */
+  .panel{
+    position:fixed;
+    top:auto;bottom:0;left:0;right:0;
+    width:100%;
+    height:54px;
+    border-left:none;
+    border-top:1.5px solid var(--border-hi);
+    border-radius:14px 14px 0 0;
+    overflow:hidden;
+    display:flex;flex-direction:column;
+    transition:height .32s cubic-bezier(.4,0,.2,1);
+    box-shadow:0 -8px 40px rgba(255,80,30,0.16);
+  }
+  .panel.expanded{height:88vh}
+  .panel.collapsed{height:54px}
+
+  /* Sidebar icons never shown on mobile */
+  .sidebar-icons{display:none!important}
+
+  /* Panel scroll area only scrolls when expanded */
+  .panel-scroll{
+    flex:1;overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+    overscroll-behavior:contain;
+    opacity:1;
+    transition:opacity .2s;
+    scrollbar-width:none;
+  }
+  .panel-scroll::-webkit-scrollbar{display:none}
+  .panel.collapsed .panel-scroll{
+    overflow:hidden;
+    pointer-events:none;
+  }
+
+  /* Section padding tighter on mobile */
+  .ps{padding:14px 16px}
+  .ps-label{font-size:7px;margin-bottom:10px;letter-spacing:.18em}
+
+  /* Stats — bigger on mobile */
+  .stat-temp{padding:12px 14px}
+  .stat-temp .sv{font-size:28px}
+  .sc{padding:10px 12px}
+  .sv{font-size:17px}
+  .sl{font-size:6.5px}
+
+  /* Sliders — taller touch target */
+  .slider-wrap{height:30px}
+  input[type=range]{height:30px}
+  input[type=range]::-webkit-slider-thumb{width:22px;height:22px}
+
+  /* Buttons — full touch target */
+  .btn{min-height:46px;font-size:12px;gap:6px}
+  .btn-playback{gap:8px}
+  .btn-thermal{gap:8px}
+  .btn-row-2{gap:8px}
+  .preset-btn{min-height:36px;font-size:8px}
+
+  /* Hide dist widget and temp bar on mobile */
+  .dist-widget,.interact-hint,#tBarWrap{display:none!important}
+
+  /* Tooltip — don't overflow screen */
+  .has-tip::after{left:0;right:0;transform:none;max-width:100%;width:auto}
+
+  /* Show panel toggle */
+  #panelToggle{display:flex}
+}
+
+/* Prevent pull-to-refresh fighting scroll */
+@media(max-width:600px){
+  html{overscroll-behavior:none}
+}
+
+/* ── Laptop / small desktop  601px – 1100px ─────────────────*/
+@media(min-width:601px) and (max-width:1100px){
+  :root{--panel-w:256px}
+
+  .ps{padding:13px 14px}
+  .ps-label{font-size:6.5px;letter-spacing:.18em}
+
+  .stat-temp .sv{font-size:19px}
+  .stat-temp{padding:10px 12px}
+  .sc{padding:9px 10px}
+  .sv{font-size:13px}
+  .sl{font-size:6px}
+
+  .cn{font-size:10px}
+  .cv{font-size:9px}
+
+  .btn{font-size:10px;min-height:34px}
+  .btn-playback,.btn-thermal,.btn-row-2{gap:6px}
+  .preset-btn{font-size:7px;min-height:26px}
+
+  .slider-wrap{height:20px}
+  input[type=range]::-webkit-slider-thumb{width:14px;height:14px}
+
+  .dist-widget{left:14px;bottom:18px}
+  #distCanvas{width:170px;height:60px}
+
+  .log{font-size:7.5px}
+}
+
+/* ── Mid desktop  1101px – 1400px ───────────────────────────*/
+@media(min-width:1101px) and (max-width:1400px){
+  :root{--panel-w:272px}
+}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<canvas id="c2"></canvas>
+<div id="tofOverlay"></div>
+
+<div id="tBarWrap"><div id="tBarFill"></div></div>
+
+<header>
+  <div class="brand">
+    <span class="brand-bec">BEC</span>
+    <span class="brand-divider"></span>
+    <span class="brand-sub">Bose–Einstein Condensate</span>
+  </div>
+  <div class="header-right">
+    <button id="sidebarCollapseBtn" title="Toggle sidebar" aria-label="Toggle sidebar">
+      <svg id="sidebarCollapseIcon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+        <rect x="2" y="3" width="12" height="1.5" rx=".75" fill="currentColor"/>
+        <rect x="2" y="7.25" width="12" height="1.5" rx=".75" fill="currentColor"/>
+        <rect x="2" y="11.5" width="12" height="1.5" rx=".75" fill="currentColor"/>
+      </svg>
+    </button>
+    <button id="viewToggle">
+      <svg width="13" height="13" viewBox="0 0 12 12" fill="none"><path d="M1 8 Q3 5 6 7 Q9 9 11 6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" fill="none"/><path d="M1 5 Q3 2 6 4 Q9 6 11 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" fill="none" opacity=".45"/></svg>
+      Surface
+    </button>
+    <div class="pill gas" id="pill">THERMAL GAS</div>
+  </div>
+</header>
+
+<div class="dist-widget">
+  <div class="dist-label">Momentum distribution p(k)</div>
+  <canvas id="distCanvas"></canvas>
+  <div class="interact-hint">drag · scroll to zoom · pinch</div>
+</div>
+
+<aside class="panel">
+  <!-- Collapsed sidebar icon rail (desktop only) -->
+  <div class="sidebar-icons">
+    <div class="sidebar-icon-btn" title="Pause/Play">
+      <svg width="14" height="14" viewBox="0 0 11 11" fill="none"><rect x="1.5" y="1.5" width="2.5" height="8" rx=".8" fill="currentColor"/><rect x="7" y="1.5" width="2.5" height="8" rx=".8" fill="currentColor"/></svg>
+    </div>
+    <div class="sidebar-icon-btn" title="Cool to BEC">
+      <svg width="14" height="14" viewBox="0 0 11 11" fill="none"><line x1="5.5" y1="1" x2="5.5" y2="10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><line x1="1" y1="5.5" x2="10" y2="5.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><line x1="2.1" y1="2.1" x2="8.9" y2="8.9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><line x1="8.9" y1="2.1" x2="2.1" y2="8.9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+    </div>
+    <div class="sidebar-icon-btn" title="Heat Up">
+      <svg width="14" height="14" viewBox="0 0 11 11" fill="none"><path d="M5.5 9.5 C5.5 9.5 3 7.5 3 5.5 C3 4.5 3.8 3.5 4.5 3 C4.2 4 4.5 5 5.5 5.5 C5.5 4 6 2.5 7.5 1.5 C7.5 3.5 8 4.5 8 5.5 C8 7.5 5.5 9.5 5.5 9.5Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" fill="none"/></svg>
+    </div>
+    <div class="sidebar-icon-btn" title="Vortices">
+      <svg width="14" height="14" viewBox="0 0 11 11" fill="none"><path d="M5.5 2 C7.5 2 9 3.5 9 5.5 C9 7.5 7.5 9 5.5 9 C3.5 9 2.5 7.5 3 6 C3.5 4.5 5 4 6 5 C7 6 6 8 5.5 8" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg>
+    </div>
+    <div class="sidebar-icon-btn" title="Laser Stir">
+      <svg width="14" height="14" viewBox="0 0 11 11" fill="none"><circle cx="5.5" cy="5.5" r="1" fill="currentColor"/><path d="M5.5 1.5 C8 1.5 9.5 3.5 9.5 5.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" fill="none"/><path d="M5.5 9.5 C3 9.5 1.5 7.5 1.5 5.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" fill="none"/></svg>
+    </div>
+    <div class="sidebar-icon-btn" title="Collide">
+      <svg width="14" height="14" viewBox="0 0 11 11" fill="none"><circle cx="3" cy="5.5" r="2" stroke="currentColor" stroke-width="1.2"/><circle cx="8" cy="5.5" r="2" stroke="currentColor" stroke-width="1.2"/></svg>
+    </div>
+  </div>
+
+  <div id="panelToggle">
+    <div class="tog-left">
+      <span class="tog-icon">
+        <svg id="togChevron" width="12" height="12" viewBox="0 0 10 10" fill="none"><polyline points="2,3 5,7 8,3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>
+      <span class="tog-text">Controls</span>
+    </div>
+    <span class="tog-state" id="togState">TAP TO OPEN</span>
+  </div>
+
+  <div class="panel-scroll">
+  <!-- Stats -->
+  <div class="ps">
+    <div class="ps-label">System State</div>
+    <div class="stats">
+      <div class="stat-temp">
+        <div>
+          <div class="sl has-tip" data-tip="System temperature in nanokelvin. BEC forms below Tc.">Temperature</div>
+          <div class="sv" id="sT">500<span class="u">nK</span></div>
+        </div>
+        <div style="text-align:right">
+          <div class="sl has-tip" data-tip="T/Tc < 1 means you're in the BEC phase. At T=0, all atoms condense.">T / T<sub style="font-size:6px">c</sub></div>
+          <div class="sv" id="sR" style="font-size:13px">—</div>
+        </div>
+      </div>
+      <div class="sc"><div class="sl has-tip" data-tip="Fraction of atoms in the quantum ground state. Above 50% = true BEC.">Condensate N₀/N</div><div class="sv" id="sN" style="color:#c06830">0.0%</div></div>
+      <div class="sc"><div class="sl has-tip" data-tip="RMS radius of the thermal cloud. Shrinks as T drops.">Cloud radius</div><div class="sv" id="sKE">—</div></div>
+      <div class="sc" id="sVortexRow" style="display:none;grid-column:1/-1"><div class="sl has-tip" data-tip="Number of quantized vortex cores currently nucleated in the condensate.">Vortex cores</div><div class="sv" id="sVortexCount" style="color:#c8a0ff">0</div></div>
+    </div>
+  </div>
+
+  <!-- Controls -->
+  <div class="ps">
+    <div class="ps-label">Parameters</div>
+    <div class="ctrl">
+      <div class="ch"><span class="cn has-tip" data-tip="Higher η keeps more atoms — slower but more efficient cooling.">Evap. cut-off η</span><span class="cv" id="vEta">6.0</span></div>
+      <div class="slider-wrap"><div class="slider-track"></div><div class="slider-fill" id="fEta" style="width:50%"></div><input type="range" id="sEta" min="2" max="10" step="0.1" value="6"></div>
+    </div>
+    <div class="ctrl">
+      <div class="ch"><span class="cn has-tip" data-tip="Trap confinement strength. Higher ω = tighter trap, higher Tc.">Trap frequency ω</span><span class="cv" id="vTF">1.0</span></div>
+      <div class="slider-wrap"><div class="slider-track"></div><div class="slider-fill" id="fTF" style="width:28.5%"></div><input type="range" id="sTF" min="0.2" max="3" step="0.1" value="1"></div>
+    </div>
+    <div class="ctrl">
+      <div class="ch"><span class="cn has-tip" data-tip="s-wave scattering length. Controls interaction strength. Negative = attractive collapse.">Scatter length a<sub style="font-size:8px">s</sub></span><span class="cv" id="vSL">1.0</span></div>
+      <div class="slider-wrap"><div class="slider-track"></div><div class="slider-fill" id="fSL" style="width:16.7%"></div><input type="range" id="sSL" min="0" max="6" step="0.1" value="1"></div>
+    </div>
+    <div class="ctrl">
+      <div class="ch"><span class="cn has-tip" data-tip="Total atom count. More atoms = higher Tc and more visible condensation.">Atom count N</span><span class="cv" id="vAC">900</span></div>
+      <div class="slider-wrap"><div class="slider-track"></div><div class="slider-fill" id="fAC" style="width:20.5%"></div><input type="range" id="sAC" min="100" max="4000" step="100" value="900"></div>
+    </div>
+
+    <!-- Presets -->
+    <div class="ps-label" style="margin-top:14px;margin-bottom:0">Presets</div>
+    <div class="presets-bar">
+      <button class="preset-btn" id="presetBEC">Pure BEC</button>
+      <button class="preset-btn" id="presetVortex">Vortex</button>
+      <button class="preset-btn" id="presetCollapse">Collapse</button>
+      <button class="preset-btn" id="presetTOF">TOF</button>
+    </div>
+
+    <!-- Playback -->
+    <div class="btn-playback" style="margin-top:12px;">
+      <button class="btn ac" id="playBtn">
+        <svg id="playIcon" width="13" height="13" viewBox="0 0 11 11" fill="none"><rect x="1.5" y="1.5" width="2.5" height="8" rx=".8" fill="currentColor"/><rect x="7" y="1.5" width="2.5" height="8" rx=".8" fill="currentColor"/></svg>Pause
+      </button>
+      <button class="btn" id="resetBtn">
+        <svg width="13" height="13" viewBox="0 0 11 11" fill="none"><path d="M9 5.5A3.5 3.5 0 1 1 5.5 2H7.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><polyline points="6,0.5 8,2 6,3.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>Reset
+      </button>
+    </div>
+    <!-- Thermal actions -->
+    <div class="btn-thermal">
+      <button class="btn" id="coolBtn">
+        <svg id="coolIcon" width="13" height="13" viewBox="0 0 11 11" fill="none"><line x1="5.5" y1="1" x2="5.5" y2="10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><line x1="1" y1="5.5" x2="10" y2="5.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><line x1="2.1" y1="2.1" x2="8.9" y2="8.9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><line x1="8.9" y1="2.1" x2="2.1" y2="8.9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>Cool to BEC
+      </button>
+      <button class="btn" id="heatBtn">
+        <svg id="heatIcon" width="13" height="13" viewBox="0 0 11 11" fill="none"><path d="M5.5 9.5 C5.5 9.5 3 7.5 3 5.5 C3 4.5 3.8 3.5 4.5 3 C4.2 4 4.5 5 5.5 5.5 C5.5 4 6 2.5 7.5 1.5 C7.5 3.5 8 4.5 8 5.5 C8 7.5 5.5 9.5 5.5 9.5Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" fill="none"/></svg>Heat Up
+      </button>
+    </div>
+    <!-- Experiment buttons -->
+    <div class="btn-row-2">
+      <button class="btn" id="vortexBtn">
+        <svg width="13" height="13" viewBox="0 0 11 11" fill="none"><path d="M5.5 2 C7.5 2 9 3.5 9 5.5 C9 7.5 7.5 9 5.5 9 C3.5 9 2.5 7.5 3 6 C3.5 4.5 5 4 6 5 C7 6 6 8 5.5 8" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg>Vortices
+      </button>
+      <button class="btn" id="stirBtn">
+        <svg width="13" height="13" viewBox="0 0 11 11" fill="none"><circle cx="5.5" cy="5.5" r="1" fill="currentColor"/><path d="M5.5 1.5 C8 1.5 9.5 3.5 9.5 5.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" fill="none"/><path d="M5.5 9.5 C3 9.5 1.5 7.5 1.5 5.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" fill="none"/></svg>Laser Stir
+      </button>
+    </div>
+    <div class="btn-row-2">
+      <button class="btn" id="collideBtn">
+        <svg id="collideIcon" width="13" height="13" viewBox="0 0 11 11" fill="none"><circle cx="3" cy="5.5" r="2" stroke="currentColor" stroke-width="1.2"/><circle cx="8" cy="5.5" r="2" stroke="currentColor" stroke-width="1.2"/><line x1="5.5" y1="2" x2="5.5" y2="4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><line x1="5.5" y1="7" x2="5.5" y2="9" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>Collide
+      </button>
+      <button class="btn" id="snapBtn">
+        <svg width="13" height="13" viewBox="0 0 11 11" fill="none"><rect x="1.5" y="2.5" width="8" height="6.5" rx="1.2" stroke="currentColor" stroke-width="1.2" fill="none"/><circle cx="5.5" cy="5.8" r="1.6" stroke="currentColor" stroke-width="1.1" fill="none"/><path d="M3.5 2.5 L4.2 1.2 L6.8 1.2 L7.5 2.5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>Snapshot
+      </button>
+    </div>
+    <div class="btn-row-2" style="grid-template-columns:1fr">
+      <button class="btn" id="tofBtn">
+        <svg width="13" height="13" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="1.6" fill="currentColor"/><path d="M6 6 L1 2.5M6 6 L11 2.5M6 6 L1 9.5M6 6 L11 9.5" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>Release Trap (TOF)
+      </button>
+    </div>
+    <div class="ctrl" style="margin-top:10px">
+      <div class="ch"><span class="cn has-tip" data-tip="Simulation speed multiplier. 1.0 = normal speed.">Time scale</span><span class="cv" id="vTS">1.0×</span></div>
+      <div class="slider-wrap"><div class="slider-track"></div><div class="slider-fill" id="fTS" style="width:33.3%"></div><input type="range" id="sTS" min="0.1" max="3" step="0.1" value="1"></div>
+    </div>
+  </div>
+
+  <!-- Phase diagram -->
+  <div class="ps">
+    <div class="ps-label">Phase diagram N–T</div>
+    <canvas id="phaseCanvas"></canvas>
+  </div>
+
+  <!-- Log -->
+  <div class="ps">
+    <div class="ps-label">Event log</div>
+    <div class="log" id="log">
+      <div class="le">⁸⁷Rb atoms · harmonic trap loaded.</div>
+      <div class="le">Cool to BEC or collide two clouds.</div>
+    </div>
+  </div>
+  </div><!-- /panel-scroll -->
+</aside>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+'use strict';
+
+// ── SVG icon snippets used by dynamic button updates ──────────────────────
+const S={
+  pause:`<svg width="13" height="13" viewBox="0 0 11 11" fill="none"><rect x="1.5" y="1.5" width="2.5" height="8" rx=".8" fill="currentColor"/><rect x="7" y="1.5" width="2.5" height="8" rx=".8" fill="currentColor"/></svg>`,
+  play:`<svg width="13" height="13" viewBox="0 0 11 11" fill="none"><polygon points="2,1.5 9.5,5.5 2,9.5" fill="currentColor"/></svg>`,
+  stop:`<svg width="13" height="13" viewBox="0 0 11 11" fill="none"><rect x="2" y="2" width="7" height="7" rx="1" fill="currentColor"/></svg>`,
+  cool:`<svg width="13" height="13" viewBox="0 0 11 11" fill="none"><line x1="5.5" y1="1" x2="5.5" y2="10" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><line x1="1" y1="5.5" x2="10" y2="5.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><line x1="2.1" y1="2.1" x2="8.9" y2="8.9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><line x1="8.9" y1="2.1" x2="2.1" y2="8.9" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>`,
+  heat:`<svg width="13" height="13" viewBox="0 0 11 11" fill="none"><path d="M5.5 9.5 C5.5 9.5 3 7.5 3 5.5 C3 4.5 3.8 3.5 4.5 3 C4.2 4 4.5 5 5.5 5.5 C5.5 4 6 2.5 7.5 1.5 C7.5 3.5 8 4.5 8 5.5 C8 7.5 5.5 9.5 5.5 9.5Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" fill="none"/></svg>`,
+  wave:`<svg width="13" height="13" viewBox="0 0 12 12" fill="none"><path d="M1 8 Q3 5 6 7 Q9 9 11 6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" fill="none"/><path d="M1 5 Q3 2 6 4 Q9 6 11 3" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" fill="none" opacity=".45"/></svg>`,
+  atom:`<svg width="13" height="13" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="1.4" fill="currentColor"/><ellipse cx="6" cy="6" rx="5" ry="2.2" stroke="currentColor" stroke-width="1.1" fill="none"/><ellipse cx="6" cy="6" rx="5" ry="2.2" stroke="currentColor" stroke-width="1.1" fill="none" transform="rotate(60 6 6)"/><ellipse cx="6" cy="6" rx="5" ry="2.2" stroke="currentColor" stroke-width="1.1" fill="none" transform="rotate(120 6 6)"/></svg>`,
+  chevDown:`<svg width="12" height="12" viewBox="0 0 10 10" fill="none"><polyline points="2,3 5,7 8,3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+  chevUp:`<svg width="12" height="12" viewBox="0 0 10 10" fill="none"><polyline points="2,7 5,3 8,7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+};
+
+const panelEl=document.querySelector('.panel');
+const panelToggle=document.getElementById('panelToggle');
+const sidebarCollapseBtn=document.getElementById('sidebarCollapseBtn');
+function isMobile(){return innerWidth<=600;}
+
+// ── Desktop sidebar collapse ──────────────────────────────
+let sidebarCollapsed=false;
+function applySidebarCollapse(collapsed){
+  sidebarCollapsed=collapsed;
+  if(collapsed){
+    document.body.classList.add('sidebar-collapsed');
+  }else{
+    document.body.classList.remove('sidebar-collapsed');
+  }
+  // update the toggle icon
+  const icon=document.getElementById('sidebarCollapseIcon');
+  if(icon){
+    if(collapsed){
+      // show "expand" chevrons icon
+      icon.innerHTML=`<path d="M4 3 L8 8 L12 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none" transform="rotate(-90 8 8)"/><path d="M4 8 L8 13 L12 8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none" transform="rotate(-90 8 8) translate(0,-5)"/>`;
+    }else{
+      icon.innerHTML=`<rect x="2" y="3" width="12" height="1.5" rx=".75" fill="currentColor"/><rect x="2" y="7.25" width="12" height="1.5" rx=".75" fill="currentColor"/><rect x="2" y="11.5" width="12" height="1.5" rx=".75" fill="currentColor"/>`;
+    }
+  }
+  // re-notify renderer of new canvas size
+  try{
+    renderer.setSize(innerWidth,innerHeight);
+    camera.aspect=innerWidth/innerHeight;
+    camera.updateProjectionMatrix();
+    renderer2.setSize(innerWidth,innerHeight);
+    camera2.aspect=innerWidth/innerHeight;
+    camera2.updateProjectionMatrix();
+    resizeDist();phaseDirty=true;
+  }catch(e){}
+}
+if(sidebarCollapseBtn){
+  sidebarCollapseBtn.addEventListener('click',()=>{
+    if(!isMobile()) applySidebarCollapse(!sidebarCollapsed);
+  });
+}
+
+function applyMobileLayout(){
+  if(isMobile()){
+    panelToggle.style.display='flex';
+    // remove desktop collapsed state on mobile
+    document.body.classList.remove('sidebar-collapsed');
+    panelEl.style.width='';panelEl.style.top='';panelEl.style.height='';panelEl.style.maxHeight='';panelEl.style.borderLeft='';panelEl.style.borderTop='';panelEl.style.overflowY='';
+    if(!panelEl.classList.contains('expanded'))panelEl.classList.add('collapsed');
+    updateToggleUI();
+  }else{
+    panelToggle.style.display='none';
+    panelEl.classList.remove('collapsed');
+    panelEl.classList.remove('expanded');
+    panelEl.style.width='';panelEl.style.top='';panelEl.style.height='';panelEl.style.maxHeight='';panelEl.style.borderLeft='';panelEl.style.borderTop='';panelEl.style.overflowY='';
+    if(sidebarCollapsed) document.body.classList.add('sidebar-collapsed');
+  }
+}
+function updateToggleUI(){
+  const tog=panelToggle.querySelector('.tog-icon');
+  const txt=panelToggle.querySelector('.tog-text');
+  const state=document.getElementById('togState');
+  const isCollapsed=panelEl.classList.contains('collapsed');
+  if(tog){tog.innerHTML=isCollapsed?S.chevDown:S.chevUp;}
+  if(txt){txt.textContent=isCollapsed?'Controls':'Collapse';}
+  if(state){state.textContent=isCollapsed?'TAP TO OPEN':'TAP TO CLOSE';}
+}
+panelToggle.addEventListener('click',()=>{
+  if(panelEl.classList.contains('collapsed')){
+    panelEl.classList.remove('collapsed');
+    panelEl.classList.add('expanded');
+  }else{
+    panelEl.classList.remove('expanded');
+    panelEl.classList.add('collapsed');
+  }
+  updateToggleUI();
+});
+applyMobileLayout();
+addEventListener('resize',applyMobileLayout);
+
+
+
+// ═══════════════════════════════════════════════════════════
+//  PHYSICS PARAMETERS
+// ═══════════════════════════════════════════════════════════
+let T=500, N=900, omega=1.0, a_s=1.0, eta=6.0, timeScale=1.0;
+let running=true, autoCool=false, autoHeat=false, colliding=false, collisionGen=0;
+let frame=0, prevN0=0, phaseDirty=true;
+
+// ── New feature state ─────────────────────────────────────
+let vortexMode=false, vortexAngle=0, vortexGen=0;
+let laserStirMode=false, laserX=0, laserY=0, laserWorld={x:0,y:0,z:0};
+let tofMode=false, tofT=0;
+// Vortex cores: array of {x,y,charge} in the XY plane
+let vortexCores=[];
+
+// Critical temperature: Tc ∝ N^(1/3) · ω  (scaled so Tc≈100nK at N=900, ω=1)
+function Tc(){ return N>0 ? 100*Math.pow(N/900,1/3)*omega : 1e-9; }
+// Condensate fraction: 1-(T/Tc)³ for T<Tc
+function n0f(){ const tc=Tc(); return T>=tc?0:Math.max(0,1-Math.pow(T/tc,3)); }
+// Thermal cloud radius: R ∝ sqrt(kT/mω²) ~ sqrt(T)/ω
+function thermalR(){ return Math.max(1.5, 7.0*Math.sqrt(T/500)/Math.sqrt(omega)); }
+// Thomas-Fermi radius: R_TF ∝ (N·a_s)^(1/5)/ω^(2/5)
+function tfR(){ return Math.max(0.5, 2.2*Math.pow(N*Math.max(a_s,0.05)/500,0.2)/Math.pow(omega,0.4)); }
+// Thermal velocity: σ_v ∝ sqrt(T)
+function thermalV(){ return Math.max(0.008, 0.22*Math.sqrt(T/500)); }
+
+function randGauss(){
+  return Math.sqrt(-2*Math.log(Math.random()+1e-10))*Math.cos(2*Math.PI*Math.random());
+}
+
+// ═══════════════════════════════════════════════════════════
+//  THREE.JS SETUP
+// ═══════════════════════════════════════════════════════════
+const canvas3d=document.getElementById('c');
+const renderer=new THREE.WebGLRenderer({canvas:canvas3d,antialias:true,alpha:false});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setSize(innerWidth,innerHeight);
+renderer.setClearColor(0x0e0302,1);
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=3.2;
+const scene=new THREE.Scene();
+scene.fog=new THREE.FogExp2(0x0e0302,0.004);
+const camera=new THREE.PerspectiveCamera(52,innerWidth/innerHeight,0.1,1000);
+camera.position.set(0,0,30);
+
+const keyL=new THREE.PointLight(0xff6040,8.0,150); keyL.position.set(14,16,10); scene.add(keyL);
+scene.add(new THREE.AmbientLight(0x3a1406,3.5));
+const fillL=new THREE.PointLight(0xdd4422,4.8,110); fillL.position.set(-14,-4,8); scene.add(fillL);
+const coreL=new THREE.PointLight(0xffcc80,0,28); coreL.position.set(0,0,0); scene.add(coreL);
+const coreL2=new THREE.PointLight(0xffffff,0,12); coreL2.position.set(0,0,0); scene.add(coreL2);
+
+const pivot=new THREE.Group(); scene.add(pivot);
+
+// Orbit controls
+let isDrag=false,lastX=0,lastY=0,rotX=0.22,rotY=0.35,zoom=30;
+canvas3d.addEventListener('mousedown',e=>{isDrag=true;lastX=e.clientX;lastY=e.clientY;});
+window.addEventListener('mouseup',()=>isDrag=false);
+window.addEventListener('mousemove',e=>{
+  if(!isDrag)return;
+  rotY+=(e.clientX-lastX)*0.006; rotX+=(e.clientY-lastY)*0.006;
+  rotX=Math.max(-1.5,Math.min(1.5,rotX));
+  lastX=e.clientX; lastY=e.clientY;
+});
+
+canvas3d.addEventListener('wheel',e=>{zoom=Math.max(8,Math.min(70,zoom+e.deltaY*0.045));e.preventDefault();},{passive:false});
+let tLX=0,tLY=0,tLDist=0;
+canvas3d.addEventListener('touchstart',e=>{
+  if(e.touches.length===1){tLX=e.touches[0].clientX;tLY=e.touches[0].clientY;}
+  if(e.touches.length===2){const dx=e.touches[0].clientX-e.touches[1].clientX,dy=e.touches[0].clientY-e.touches[1].clientY;tLDist=Math.hypot(dx,dy);}
+},{passive:true});
+canvas3d.addEventListener('touchmove',e=>{
+  if(e.touches.length===1){rotY+=(e.touches[0].clientX-tLX)*0.008;rotX+=(e.touches[0].clientY-tLY)*0.008;rotX=Math.max(-1.5,Math.min(1.5,rotX));tLX=e.touches[0].clientX;tLY=e.touches[0].clientY;}
+  if(e.touches.length===2){const dx=e.touches[0].clientX-e.touches[1].clientX,dy=e.touches[0].clientY-e.touches[1].clientY;const d=Math.hypot(dx,dy);zoom=Math.max(8,Math.min(70,zoom-(d-tLDist)*0.1));tLDist=d;}
+  e.preventDefault();
+},{passive:false});
+
+// Trap cage
+const cageGeo=new THREE.IcosahedronGeometry(10,1);
+const cageMat=new THREE.MeshBasicMaterial({color:0xcc2a12,wireframe:true,transparent:true,opacity:0.05});
+pivot.add(new THREE.Mesh(cageGeo,cageMat));
+
+// ═══════════════════════════════════════════════════════════
+//  PARTICLE SYSTEM
+// ═══════════════════════════════════════════════════════════
+const MAX=4000;
+const px_=new Float32Array(MAX*3), pv_=new Float32Array(MAX*3);
+const pc_=new Float32Array(MAX*3), ps_=new Float32Array(MAX);
+const cond_=new Uint8Array(MAX), cloud_=new Uint8Array(MAX);
+
+const geo=new THREE.BufferGeometry();
+geo.setAttribute('position',new THREE.BufferAttribute(px_,3));
+geo.setAttribute('aColor',  new THREE.BufferAttribute(pc_,3));
+geo.setAttribute('aSize',   new THREE.BufferAttribute(ps_,1));
+geo.setDrawRange(0,0);
+geo.boundingSphere=new THREE.Sphere(new THREE.Vector3(0,0,0),60);
+
+const VS=`attribute float aSize;attribute vec3 aColor;varying vec3 vColor;
+void main(){vColor=aColor;vec4 mv=modelViewMatrix*vec4(position,1.0);
+gl_PointSize=aSize*(600.0/-mv.z);gl_Position=projectionMatrix*mv;}`;
+const FS=`precision highp float;varying vec3 vColor;
+void main(){vec2 uv=gl_PointCoord-0.5;float r=length(uv)*2.0;if(r>1.0)discard;
+float halo=exp(-r*r*2.5)*0.12;float bloom=exp(-r*r*9.0)*0.35;float core=exp(-r*r*36.0)*0.90;
+float a=halo+bloom+core;vec3 col=mix(vColor,vColor+vec3(0.50,0.32,0.10),core*0.7);
+gl_FragColor=vec4(col,a);}`;
+const mat=new THREE.ShaderMaterial({vertexShader:VS,fragmentShader:FS,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending});
+pivot.add(new THREE.Points(geo,mat));
+
+// ── BEC glow: three concentric additive blobs at origin ──
+function makeGlowMat(falloff){
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.BufferAttribute(new Float32Array([0,0,0]),3));
+  g.boundingSphere=new THREE.Sphere(new THREE.Vector3(0,0,0),40);
+  const m=new THREE.ShaderMaterial({
+    uniforms:{uSize:{value:0},uAlpha:{value:0},uColor:{value:new THREE.Color(1,0.38,0.04)}},
+    vertexShader:`uniform float uSize;void main(){vec4 mv=modelViewMatrix*vec4(position,1.0);gl_PointSize=uSize*(900.0/-mv.z);gl_Position=projectionMatrix*mv;}`,
+    fragmentShader:`precision highp float;uniform float uAlpha;uniform vec3 uColor;void main(){vec2 uv=gl_PointCoord-0.5;float r2=dot(uv,uv)*4.0;if(r2>1.0)discard;float a=exp(-r2*${falloff})*uAlpha;gl_FragColor=vec4(uColor,a);}`,
+    transparent:true,depthWrite:false,blending:THREE.AdditiveBlending
+  });
+  pivot.add(new THREE.Points(g,m));
+  return m;
+}
+const glowOuter=makeGlowMat('2.0');
+const glowMid  =makeGlowMat('5.5');
+const glowCore =makeGlowMat('15.0');
+
+// ── Vortex core markers (small hollow rings in the XY plane) ──
+const vortexMarkers=[];
+function buildVortexMarkers(cores){
+  vortexMarkers.forEach(m=>pivot.remove(m));
+  vortexMarkers.length=0;
+  cores.forEach(vc=>{
+    const g=new THREE.RingGeometry(0.18,0.32,24);
+    const m=new THREE.MeshBasicMaterial({color:0xd0a0ff,transparent:true,opacity:0.65,side:THREE.DoubleSide});
+    const mesh=new THREE.Mesh(g,m);
+    mesh.position.set(vc.x,vc.y,0);
+    mesh.rotation.x=Math.PI/2;
+    pivot.add(mesh);
+    vortexMarkers.push(mesh);
+  });
+}
+
+// ── Laser stirrer dot ──
+const laserDotGeo=new THREE.BufferGeometry();
+laserDotGeo.setAttribute('position',new THREE.BufferAttribute(new Float32Array([0,0,0]),3));
+laserDotGeo.boundingSphere=new THREE.Sphere(new THREE.Vector3(0,0,0),40);
+const laserDotMat=new THREE.ShaderMaterial({
+  uniforms:{uSize:{value:0},uAlpha:{value:0}},
+  vertexShader:`uniform float uSize;void main(){vec4 mv=modelViewMatrix*vec4(position,1.0);gl_PointSize=uSize*(900.0/-mv.z);gl_Position=projectionMatrix*mv;}`,
+  fragmentShader:`precision highp float;uniform float uAlpha;void main(){vec2 uv=gl_PointCoord-0.5;float r2=dot(uv,uv)*4.0;if(r2>1.0)discard;float a=exp(-r2*3.0)*uAlpha;gl_FragColor=vec4(0.2,1.0,0.8,a);}`,
+  transparent:true,depthWrite:false,blending:THREE.AdditiveBlending
+});
+const laserDotPts=new THREE.Points(laserDotGeo,laserDotMat);
+pivot.add(laserDotPts);
+
+// ── Laser stirrer mouse tracking — placed here so laserDotGeo is in scope ──
+const _laserRay = new THREE.Raycaster();
+const _laserNDC = new THREE.Vector2();
+const _invMat = new THREE.Matrix4();
+canvas3d.addEventListener('mousemove',e=>{
+  laserX=e.clientX; laserY=e.clientY;
+  if(!laserStirMode) return;
+  const rect=canvas3d.getBoundingClientRect();
+  _laserNDC.x=((e.clientX-rect.left)/rect.width)*2-1;
+  _laserNDC.y=-((e.clientY-rect.top)/rect.height)*2+1;
+  _laserRay.setFromCamera(_laserNDC, camera);
+  // Get ray in pivot-local space by inverting the current pivot matrix
+  _invMat.copy(pivot.matrixWorld).invert();
+  const ro=_laserRay.ray.origin.clone().applyMatrix4(_invMat);
+  const rd=_laserRay.ray.direction.clone().transformDirection(_invMat).normalize();
+  // Intersect with the XY plane (z=0) in local space
+  if(Math.abs(rd.z) > 0.0001){
+    const t=-ro.z/rd.z;
+    laserWorld.x=ro.x+rd.x*t;
+    laserWorld.y=ro.y+rd.y*t;
+    laserWorld.z=0;
+    // Update the dot mesh position
+    const pos=laserDotGeo.attributes.position;
+    pos.setXYZ(0,laserWorld.x,laserWorld.y,0);
+    pos.needsUpdate=true;
+  }
+});
+
+function setGlow(n0){
+  const s=n0>0.01;
+  // Color shifts: orange (hot/low n0) → icy blue-white (high n0 / cold BEC)
+  const f=Math.min(1,T/500); // 1=hot orange, 0=cold blue
+  const rO=0.20+f*0.80, gO=0.55-f*0.17, bO=1.00-f*0.96; // outer: blue→orange
+  const rM=0.40+f*0.60, gM=0.75-f*0.10, bM=1.00-f*0.88; // mid: cyan→gold
+  const rC=0.80+f*0.20, gC=0.92-f*0.00, bC=1.00-f*0.28; // core: white-blue→cream
+  glowOuter.uniforms.uColor.value.setRGB(rO,gO,bO);
+  glowMid.uniforms.uColor.value.setRGB(rM,gM,bM);
+  glowCore.uniforms.uColor.value.setRGB(rC,gC,bC);
+  glowOuter.uniforms.uSize.value  =s?(11+n0*20):0;
+  glowOuter.uniforms.uAlpha.value =s?(0.28+n0*0.35):0;
+  glowMid.uniforms.uSize.value    =s?(5.5+n0*12):0;
+  glowMid.uniforms.uAlpha.value   =s?(0.45+n0*0.50):0;
+  glowCore.uniforms.uSize.value   =s?(2.2+n0*8):0;
+  glowCore.uniforms.uAlpha.value  =s?(0.72+n0*0.28):0;
+}
+
+function flushGPU(){
+  geo.attributes.position.needsUpdate=true;
+  geo.attributes.aColor.needsUpdate=true;
+  geo.attributes.aSize.needsUpdate=true;
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PARTICLE PLACEMENT — ALWAYS driven by current physics state
+// ═══════════════════════════════════════════════════════════
+function colorParticle(i,collideCx=18){
+  if(cond_[i]){
+    // BEC core: bright icy white-blue
+    pc_[i*3]=0.82; pc_[i*3+1]=0.95; pc_[i*3+2]=1.00;
+  } else if(colliding){
+    const side=cloud_[i]===1;
+    const cx=(side?1:-1)*collideCx;
+    const ddx=px_[i*3]-cx, ddy=px_[i*3+1], ddz=px_[i*3+2];
+    const dist=Math.sqrt(ddx*ddx+ddy*ddy+ddz*ddz);
+    const bright=Math.max(0.5, 1.0-dist/8);
+    pc_[i*3]  =0.65*bright+0.25;
+    pc_[i*3+1]=0.88*bright+0.10;
+    pc_[i*3+2]=1.00*bright;
+  } else {
+    // Hot orange → cyan → icy blue
+    const f=Math.min(1, T/500);
+    pc_[i*3]  = 0.12 + f*0.88;  // R: bright orange hot
+    pc_[i*3+1] = 0.75 - f*0.58; // G
+    pc_[i*3+2] = 1.00 - f*0.96; // B
+  }
+}
+
+function placeParticle(i,cloudSide){
+  // Decide condensed vs thermal
+  const isCond=!colliding && Math.random()<n0f();
+  cond_[i]=isCond?1:0;
+  cloud_[i]=cloudSide??0;
+
+  if(isCond){
+    // Thomas-Fermi density profile: ρ∝(1-r²/R²), sample ∝ r² * ρ
+    const tf=tfR();
+    // Sample r from TF profile via numerical inversion: use r~tf*u^0.4
+    const r=tf*Math.pow(Math.random(),0.38);
+    const th=Math.acos(2*Math.random()-1), ph=Math.random()*Math.PI*2;
+    px_[i*3]  =r*Math.sin(th)*Math.cos(ph);
+    px_[i*3+1]=r*Math.sin(th)*Math.sin(ph);
+    px_[i*3+2]=r*Math.cos(th);
+    // Near-zero velocity (zero-point motion only)
+    const zp=0.004;
+    pv_[i*3]=randGauss()*zp; pv_[i*3+1]=randGauss()*zp; pv_[i*3+2]=randGauss()*zp;
+    ps_[i]=0.55;
+  } else if(colliding){
+    const side=cloudSide===1?1:-1;
+    // Dense Gaussian cloud like end-of-cooling BEC state, radius ~6, centers at ±18
+    const r=6.0*Math.pow(Math.random(),0.5);
+    const th=Math.acos(2*Math.random()-1), ph=Math.random()*Math.PI*2;
+    px_[i*3]  =r*Math.sin(th)*Math.cos(ph)+side*18;
+    px_[i*3+1]=r*Math.sin(th)*Math.sin(ph);
+    px_[i*3+2]=r*Math.cos(th);
+    // Very slow cold drift toward center only
+    pv_[i*3]  =-side*0.032;
+    pv_[i*3+1]=0; pv_[i*3+2]=0;
+    ps_[i]=1.80;
+  } else {
+    // Thermal: Gaussian position (σ=thermalR/√3 per axis → correct 3D RMS), Maxwell-Boltzmann velocity
+    const tr=thermalR();
+    const tv=thermalV();
+    // Position: Gaussian with σ_r = tr/√3 ≈ 0.58*tr so RMS radius = tr
+    const sr=tr*0.58;
+    px_[i*3]  =randGauss()*sr;
+    px_[i*3+1]=randGauss()*sr;
+    px_[i*3+2]=randGauss()*sr;
+    // Velocity: Maxwell-Boltzmann each component ~ N(0, tv)
+    pv_[i*3]  =randGauss()*tv;
+    pv_[i*3+1]=randGauss()*tv;
+    pv_[i*3+2]=randGauss()*tv;
+    ps_[i]=1.15;
+  }
+  colorParticle(i);
+}
+
+function initParticles(){
+  const count=Math.min(N,MAX);
+  for(let i=0;i<MAX;i++){
+    if(i<count){ placeParticle(i,0); }
+    else{
+      px_[i*3]=px_[i*3+1]=px_[i*3+2]=0;
+      pv_[i*3]=pv_[i*3+1]=pv_[i*3+2]=0;
+      pc_[i*3]=pc_[i*3+1]=pc_[i*3+2]=0;
+      ps_[i]=0; cond_[i]=0; cloud_[i]=0;
+    }
+  }
+  geo.setDrawRange(0,count);
+  flushGPU();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PHYSICS TICK
+// ═══════════════════════════════════════════════════════════
+function tickPhysics(dt){
+  const count=Math.min(N,MAX);
+  const n0=n0f();
+  const tr=thermalR();
+  const tf=tfR();
+  const tv=thermalV();
+  const om2=omega*omega*0.0018;
+  const collideCx=Math.max(0, 18-frame*dt*3.5);
+
+  // ── Evaporative cooling ──
+  if(autoCool && !colliding){
+    const kT=Math.max(0.001,T/500)*0.04;
+    const eCut=eta*kT;
+    // Remove up to a few hot atoms per frame
+    let removed=0;
+    let evapCount=Math.min(N,MAX);
+    for(let i=evapCount-1; i>=0 && removed<4; i--){
+      if(cond_[i]) continue;
+      const v2=pv_[i*3]*pv_[i*3]+pv_[i*3+1]*pv_[i*3+1]+pv_[i*3+2]*pv_[i*3+2];
+      const E=0.5*v2+0.5*om2*(px_[i*3]*px_[i*3]+px_[i*3+1]*px_[i*3+1]+px_[i*3+2]*px_[i*3+2]);
+      if(E>eCut && N>100 && Math.random()<0.3){
+        const last=evapCount-1;
+        if(last!==i){
+          for(let c=0;c<3;c++){
+            px_[i*3+c]=px_[last*3+c];
+            pv_[i*3+c]=pv_[last*3+c];
+            pc_[i*3+c]=pc_[last*3+c];
+          }
+          ps_[i]=ps_[last]; cond_[i]=cond_[last]; cloud_[i]=cloud_[last];
+        }
+        for(let c=0;c<3;c++){px_[last*3+c]=0;pv_[last*3+c]=0;pc_[last*3+c]=0;}
+        ps_[last]=0; cond_[last]=0; cloud_[last]=0;
+        N--; evapCount--; removed++;
+        geo.setDrawRange(0,evapCount);
+        document.getElementById('vAC').textContent=N;
+        const sACel=document.getElementById('sAC');
+        if(parseInt(sACel.value)>N){ sACel.value=N; updateFill('sAC','fAC'); }
+      }
+    }
+    // T decreases: dT/dt ∝ -η*T/(N) × removal rate
+    const coolRate=0.10*(eta/6.0)*Math.sqrt(Math.max(T,1)/100);
+    T=Math.max(0.5, T-coolRate*dt*60);
+    phaseDirty=true;
+  }
+
+  // ── Heating: scatter particles, ramp T back up ──
+  if(autoHeat && !colliding){
+    const heatRate=0.18*Math.sqrt(Math.max(500-T,1)/500);
+    T=Math.min(500, T+heatRate*dt*60);
+    // Kick a random subset of condensed atoms back into thermal motion
+    const count2=Math.min(N,MAX);
+    const tv2=thermalV();
+    for(let i=0;i<count2;i++){
+      if(cond_[i] && Math.random()<0.04){
+        cond_[i]=0;
+        // Give it a random thermal kick so it scatters outward
+        pv_[i*3]  =randGauss()*tv2*1.8;
+        pv_[i*3+1]=randGauss()*tv2*1.8;
+        pv_[i*3+2]=randGauss()*tv2*1.8;
+      }
+    }
+    if(T>=499){
+      autoHeat=false;
+      document.getElementById('heatBtn').classList.remove('on');
+      document.getElementById('heatBtn').innerHTML=S.heat+'Heat Up';
+      addLog('Fully thermalised at 500 nK.','warn');
+    }
+    phaseDirty=true;
+  }
+
+  // ── Adjust condensate count to match n0(T) ──
+  const targetCond=Math.round(n0*Math.min(N,MAX));
+  let curCond=0;
+  for(let i=0;i<Math.min(N,MAX);i++) if(cond_[i]) curCond++;
+  // Promote: pick coldest (lowest speed) thermal atoms
+  if(curCond<targetCond){
+    const thermal=[];
+    for(let i=0;i<Math.min(N,MAX);i++){
+      if(!cond_[i]){
+        const v2=pv_[i*3]*pv_[i*3]+pv_[i*3+1]*pv_[i*3+1]+pv_[i*3+2]*pv_[i*3+2];
+        thermal.push([i,v2]);
+      }
+    }
+    thermal.sort((a,b)=>a[1]-b[1]);
+    const promote=Math.min(Math.ceil(Math.min(N,MAX)*0.025), targetCond-curCond, thermal.length);
+    for(let k=0;k<promote;k++) cond_[thermal[k][0]]=1;
+  } else if(curCond>targetCond){
+    const conds=[];
+    for(let i=0;i<Math.min(N,MAX);i++){
+      if(cond_[i]){
+        const v2=pv_[i*3]*pv_[i*3]+pv_[i*3+1]*pv_[i*3+1]+pv_[i*3+2]*pv_[i*3+2];
+        conds.push([i,v2]);
+      }
+    }
+    conds.sort((a,b)=>b[1]-a[1]);
+    const demote=Math.min(Math.ceil(Math.min(N,MAX)*0.025), curCond-targetCond, conds.length);
+    for(let k=0;k<demote;k++) cond_[conds[k][0]]=0;
+  }
+
+  // ── TOF timer: advance once per frame, not per particle ──
+  if(tofMode) tofT+=dt;
+
+  // ── Integrate each particle ──
+  for(let i=0;i<Math.min(N,MAX);i++){
+    if(cond_[i]){
+      // Condensed: strong pull to center, zero-point jitter, TF clamp
+      const relax=Math.min(1, dt*3.5);
+      px_[i*3]  +=-px_[i*3]  *relax;
+      px_[i*3+1]+=-px_[i*3+1]*relax;
+      px_[i*3+2]+=-px_[i*3+2]*relax;
+      // Clamp to TF
+      const d=Math.sqrt(px_[i*3]*px_[i*3]+px_[i*3+1]*px_[i*3+1]+px_[i*3+2]*px_[i*3+2]);
+      if(d>tf){const s=tf/d; px_[i*3]*=s; px_[i*3+1]*=s; px_[i*3+2]*=s;}
+      // Zero-point jitter
+      const zp=tf*0.014;
+      px_[i*3]  +=(Math.random()-0.5)*zp;
+      px_[i*3+1]+=(Math.random()-0.5)*zp;
+      px_[i*3+2]+=(Math.random()-0.5)*zp;
+      // Velocity → 0
+      pv_[i*3]*=0.85; pv_[i*3+1]*=0.85; pv_[i*3+2]*=0.85;
+
+      // ── Vortex: rotate condensed atoms around z-axis + hollow out cores ──
+      if(vortexMode && vortexCores.length>0){
+        const vx=px_[i*3], vy=px_[i*3+1];
+        const r=Math.sqrt(vx*vx+vy*vy)+0.001;
+        // Angular velocity — solid body rotation
+        const omega_rot=0.025*omega;
+        // Tangential kick: perpendicular to radius in XY plane
+        pv_[i*3]   += -vy/r * r * omega_rot;
+        pv_[i*3+1] +=  vx/r * r * omega_rot;
+        // Repulsion from each vortex core — push atoms away from core centre
+        for(const vc of vortexCores){
+          const dvx=vx-vc.x, dvy=vy-vc.y;
+          const dr2=dvx*dvx+dvy*dvy+0.001;
+          if(dr2<1.5){
+            const f=0.12/dr2;
+            pv_[i*3]   += dvx*f;
+            pv_[i*3+1] += dvy*f;
+          }
+        }
+        // Apply velocity to position (condensed atoms normally skip this)
+        px_[i*3]   += pv_[i*3]   * dt * 20;
+        px_[i*3+1] += pv_[i*3+1] * dt * 20;
+        // Re-clamp to TF so atoms don't escape
+        const d2=Math.sqrt(px_[i*3]*px_[i*3]+px_[i*3+1]*px_[i*3+1]+px_[i*3+2]*px_[i*3+2]);
+        if(d2>tf){const s=tf/d2; px_[i*3]*=s; px_[i*3+1]*=s; px_[i*3+2]*=s;}
+      }
+
+      // Damp velocity back toward zero after move
+      pv_[i*3]*=0.72; pv_[i*3+1]*=0.72; pv_[i*3+2]*=0.72;
+      colorParticle(i); ps_[i]=0.55;
+    } else if(colliding){
+      // Each cloud drifts inward as a solid dense ball — NO free escape
+      const side=cloud_[i]===1?1:-1;
+      // Cloud centre tracks inward over time via velocity
+      px_[i*3]  +=pv_[i*3]  *dt*60;
+      px_[i*3+1]+=pv_[i*3+1]*dt*60;
+      px_[i*3+2]+=pv_[i*3+2]*dt*60;
+
+      // Harmonic pull back to cloud centre (keeps cloud together)
+      const cx=side*Math.max(0, 18-frame*dt*3.5);
+      const dx=px_[i*3]-cx, dy=px_[i*3+1], dz=px_[i*3+2];
+      pv_[i*3]  +=-dx*0.004*dt*60;
+      pv_[i*3+1]+=-dy*0.006*dt*60;
+      pv_[i*3+2]+=-dz*0.006*dt*60;
+
+      // Hard wall: clamp to cloud radius 7
+      const dr=Math.sqrt(dx*dx+dy*dy+dz*dz)+0.001;
+      if(dr>7){
+        const s=7/dr;
+        px_[i*3]=cx+dx*s; px_[i*3+1]=dy*s; px_[i*3+2]=dz*s;
+        pv_[i*3]*=0.3; pv_[i*3+1]*=0.3; pv_[i*3+2]*=0.3;
+      }
+
+      // Tiny cold jitter only
+      const kick=0.003;
+      pv_[i*3]  +=randGauss()*kick;
+      pv_[i*3+1]+=randGauss()*kick;
+      pv_[i*3+2]+=randGauss()*kick;
+      pv_[i*3]*=0.97; pv_[i*3+1]*=0.97; pv_[i*3+2]*=0.97;
+      colorParticle(i,collideCx); ps_[i]=1.80;
+    } else {
+      // Thermal: harmonic trap + Langevin thermostat
+      // Harmonic force
+      let ax=-om2*px_[i*3], ay=-om2*px_[i*3+1], az=-om2*px_[i*3+2];
+
+      // ── TOF: release trap, atoms expand ballistically ──
+      if(tofMode){
+        const tofFactor=Math.max(0, 1-tofT*0.6);
+        ax*=tofFactor; ay*=tofFactor; az*=tofFactor;
+      }
+
+      pv_[i*3]  +=ax*dt*60;
+      pv_[i*3+1]+=ay*dt*60;
+      pv_[i*3+2]+=az*dt*60;
+
+      // Thermostat: rescale speed toward tv (Maxwell-Boltzmann)
+      const v2=pv_[i*3]*pv_[i*3]+pv_[i*3+1]*pv_[i*3+1]+pv_[i*3+2]*pv_[i*3+2];
+      const vRms=Math.sqrt(v2+1e-10);
+      // Gentle rescale per frame
+      const rescale=1+(tv/vRms-1)*Math.min(1,dt*3.0)*0.06;
+      pv_[i*3]*=rescale; pv_[i*3+1]*=rescale; pv_[i*3+2]*=rescale;
+
+      // Langevin noise
+      const noise=tv*Math.sqrt(dt*60)*0.10;
+      pv_[i*3]  +=randGauss()*noise;
+      pv_[i*3+1]+=randGauss()*noise;
+      pv_[i*3+2]+=randGauss()*noise;
+
+      // Position update
+      px_[i*3]  +=pv_[i*3]  *dt*60;
+      px_[i*3+1]+=pv_[i*3+1]*dt*60;
+      px_[i*3+2]+=pv_[i*3+2]*dt*60;
+
+      // Soft wall at trap radius
+      const rr=Math.sqrt(px_[i*3]*px_[i*3]+px_[i*3+1]*px_[i*3+1]+px_[i*3+2]*px_[i*3+2]);
+      const wall=tr*1.15;
+      if(rr>wall){
+        const s=wall/rr;
+        px_[i*3]*=s; px_[i*3+1]*=s; px_[i*3+2]*=s;
+        pv_[i*3]*=-0.50; pv_[i*3+1]*=-0.50; pv_[i*3+2]*=-0.50;
+      }
+      colorParticle(i); ps_[i]=1.15;
+    }
+
+    // ── Laser stirrer: applies to ALL atom types ──
+    if(laserStirMode){
+      const ldx=px_[i*3]-laserWorld.x;
+      const ldy=px_[i*3+1]-laserWorld.y;
+      const ldz=px_[i*3+2]-laserWorld.z;
+      const ld2=ldx*ldx+ldy*ldy+ldz*ldz;
+      if(ld2<6.0){
+        const lf=0.10*Math.exp(-ld2*0.4);
+        pv_[i*3]  +=ldx*lf;
+        pv_[i*3+1]+=ldy*lf;
+        pv_[i*3+2]+=ldz*lf;
+        // If condensed, kick it out and demote to thermal
+        if(cond_[i] && ld2<1.5){
+          cond_[i]=0;
+          pv_[i*3]  +=ldx*0.15;
+          pv_[i*3+1]+=ldy*0.15;
+          pv_[i*3+2]+=ldz*0.15;
+        }
+      }
+    }
+  }
+
+  // Zero inactive
+  for(let i=Math.min(N,MAX);i<MAX;i++){px_[i*3]=px_[i*3+1]=px_[i*3+2]=0; ps_[i]=0;}
+  flushGPU();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  VISUALS
+// ═══════════════════════════════════════════════════════════
+function updateVisuals(){
+  const n0=n0f();
+  const eff=colliding?0.75:n0;
+  const pulse=Math.sin(performance.now()*0.0028)*0.5+0.5;
+  const f=Math.min(1,T/500); // 1=hot, 0=cold
+  // Core glow shifts orange→blue
+  const cR=f*1.0+(1-f)*0.20, cG=f*0.45+(1-f)*0.70, cB=f*0.05+(1-f)*1.00;
+  coreL.color.setRGB(cR,cG,cB);
+  coreL2.color.setRGB(cR*0.8+0.2, cG*0.5+0.5, cB*0.5+0.5);
+  coreL.intensity =eff*9.0+pulse*eff*2.5;
+  coreL.distance  =tfR()*22;
+  coreL2.intensity=eff*eff*5.0;
+  coreL2.distance =tfR()*12;
+  cageMat.opacity =0.06+eff*0.16;
+  // Key light: warm orange when hot, cool blue-white when cold
+  const hue = 0.025 + (1-f)*0.58;
+  keyL.color.setHSL(hue, 1.0, 0.55+eff*0.15);
+  setGlow(eff);
+
+  // ── Vortex marker opacity pulse ──
+  vortexMarkers.forEach((m,i)=>{
+    m.material.opacity = vortexMode ? 0.4+0.35*Math.sin(performance.now()*0.0018+i*1.4) : 0;
+    m.rotation.z += 0.012*omega;
+  });
+
+  // ── Laser dot ──
+  if(laserStirMode){
+    laserDotMat.uniforms.uSize.value=4.0;
+    laserDotMat.uniforms.uAlpha.value=0.7+0.3*Math.sin(performance.now()*0.012);
+  } else {
+    laserDotMat.uniforms.uSize.value=0;
+    laserDotMat.uniforms.uAlpha.value=0;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  STATS UI
+// ═══════════════════════════════════════════════════════════
+function updateStats(){
+  const tc=Tc(), n0=n0f(), f=Math.min(1,T/500);
+  const sTEl=document.getElementById('sT');
+  sTEl.innerHTML=`${Math.round(T)}<span class="u">nK</span>`;
+  // Shift from orange (hot) to blue (cold)
+  sTEl.style.color=`hsl(${20+(1-f)*190},${80+f*15}%,${60+f*10}%)`;
+  const tRatio=T/tc;
+  const sREl=document.getElementById('sR');
+  sREl.textContent=tRatio.toFixed(2);
+  sREl.style.color=tRatio<=1?'#ffcc88':'#cc4422';
+  const n0El=document.getElementById('sN');
+  n0El.textContent=(n0*100).toFixed(1)+'%';
+  n0El.style.color=n0>0.1?'#ffcc88':'#cc4422';
+  document.getElementById('sKE').innerHTML=`${thermalR().toFixed(1)}<span class="u">μm</span>`;
+  const pill=document.getElementById('pill');
+  if(colliding){pill.textContent='COOLING CLOUDS';pill.className='pill cold';}
+  else if(n0>0.5){pill.textContent='BEC';pill.className='pill bec';}
+  else if(n0>0.05){pill.textContent='CONDENSING';pill.className='pill cond';}
+  else if(T<150){pill.textContent='COLD GAS';pill.className='pill cold';}
+  else{pill.textContent='THERMAL GAS';pill.className='pill gas';}
+  document.getElementById('tBarFill').style.transform=`scaleX(${Math.max(0.02,Math.min(1,T/500))}`;
+  const vRow=document.getElementById('sVortexRow');
+  if(vortexMode&&vortexCores.length>0){
+    vRow.style.display='';
+    document.getElementById('sVortexCount').textContent=vortexCores.length;
+  } else {
+    vRow.style.display='none';
+  }
+}
+
+// ═══════════════════════════════════════════════════════════
+//  MOMENTUM DISTRIBUTION — built from actual particle velocities
+// ═══════════════════════════════════════════════════════════
+const dCv=document.getElementById('distCanvas');
+const dCx=dCv.getContext('2d');
+function resizeDist(){dCv.width=dCv.offsetWidth||220; dCv.height=dCv.offsetHeight||78;}
+resizeDist();
+function drawDist(){
+  if(!dCv.offsetWidth)return;
+  const w=dCv.width, h=dCv.height, n0=n0f();
+  dCx.clearRect(0,0,w,h);
+  const count=Math.min(N,MAX);
+  const bins=40;
+  const hist=new Float32Array(bins);
+  let nc=0;
+  // Use 2×thermalV as the speed axis max so the distribution fits well
+  const maxV=Math.max(thermalV()*2.5, 0.001);
+  for(let i=0;i<count;i++){
+    if(cond_[i]){nc++;continue;}
+    const spd=Math.sqrt(pv_[i*3]*pv_[i*3]+pv_[i*3+1]*pv_[i*3+1]+pv_[i*3+2]*pv_[i*3+2]);
+    const b=Math.min(bins-1,Math.floor(spd/maxV*bins));
+    hist[b]++;
+  }
+  // BEC spike at k=0: condensed atoms pile up in ground state
+  if(nc>0&&n0>0.01) hist[0]+=nc*2.8;
+
+  let mx=1; for(let i=0;i<bins;i++) if(hist[i]>mx) mx=hist[i];
+  const bw=w/bins;
+  for(let i=0;i<bins;i++){
+    const bh=(hist[i]/mx)*(h-6);
+    if(bh<0.5)continue;
+    const isBEC=(i===0&&nc>0&&n0>0.01);
+    if(isBEC){
+      const g=dCx.createLinearGradient(0,h-bh,0,h);
+      g.addColorStop(0,'rgba(255,228,160,0.98)');
+      g.addColorStop(1,'rgba(255,140,50,0.72)');
+      dCx.fillStyle=g;
+    } else {
+      const frac=Math.min(1,T/500);
+      dCx.fillStyle=`hsla(${15+frac*8},${65+frac*25}%,${38+frac*20}%,0.90)`;
+    }
+    dCx.fillRect(i*bw, h-bh, bw-1, bh);
+  }
+  dCx.strokeStyle='rgba(180,40,20,0.18)'; dCx.lineWidth=1;
+  dCx.beginPath(); dCx.moveTo(0,h-0.5); dCx.lineTo(w,h-0.5); dCx.stroke();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  PHASE DIAGRAM
+// ═══════════════════════════════════════════════════════════
+const pCv=document.getElementById('phaseCanvas');
+const pCx=pCv.getContext('2d');
+function drawPhase(){
+  if(!phaseDirty)return; phaseDirty=false;
+  pCv.width=pCv.parentElement.clientWidth; pCv.height=68;
+  const w=pCv.width, h=pCv.height, maxN=1500, maxT=560;
+  pCx.clearRect(0,0,w,h);
+  const tx=n=>(n/maxN)*w, ty=t=>h-(t/maxT)*h;
+  // BEC region fill
+  pCx.beginPath(); pCx.moveTo(0,h);
+  for(let n=0;n<=maxN;n+=10){const tc=100*Math.pow(Math.max(n,1)/900,1/3)*omega; n===0?pCx.moveTo(tx(n),ty(tc)):pCx.lineTo(tx(n),ty(tc));}
+  pCx.lineTo(w,h); pCx.closePath();
+  const grd=pCx.createLinearGradient(0,0,0,h);
+  grd.addColorStop(0,'rgba(255,120,50,0.35)'); grd.addColorStop(1,'rgba(180,30,10,0.08)');
+  pCx.fillStyle=grd; pCx.fill();
+  // Phase boundary
+  pCx.beginPath();
+  for(let n=0;n<=maxN;n+=10){const tc=100*Math.pow(Math.max(n,1)/900,1/3)*omega; n===0?pCx.moveTo(tx(n),ty(tc)):pCx.lineTo(tx(n),ty(tc));}
+  pCx.strokeStyle='#d42b1e'; pCx.lineWidth=1.5; pCx.stroke();
+  pCx.font='7px "JetBrains Mono"';
+  pCx.fillStyle='rgba(255,140,60,0.65)'; pCx.fillText('BEC',5,h-5);
+  pCx.fillStyle='rgba(180,60,40,0.55)';  pCx.fillText('NORMAL',w*0.42,9);
+  // Current state dot
+  pCx.beginPath(); pCx.arc(tx(N),ty(T),4.5,0,Math.PI*2);
+  pCx.fillStyle=T<Tc()?'#ffcc88':'#d42b1e'; pCx.fill();
+  pCx.strokeStyle='rgba(255,255,255,0.8)'; pCx.lineWidth=1; pCx.stroke();
+}
+
+// ═══════════════════════════════════════════════════════════
+//  LOG
+// ═══════════════════════════════════════════════════════════
+function addLog(m,cls=''){
+  const l=document.getElementById('log');
+  const d=document.createElement('div');
+  d.className='le'+(cls?' '+cls:''); d.textContent=m;
+  l.prepend(d); while(l.children.length>12) l.removeChild(l.lastChild);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  COLLISION
+// ═══════════════════════════════════════════════════════════
+function launchCollision(){
+  if(colliding)return;
+  colliding=true;
+  frame=0; // reset so cloud-centre drift formula starts fresh
+  T=Math.min(T,30); // force cold — looks like BEC end state
+  const myGen=++collisionGen;
+  addLog('Two cold clouds launched.','hi');
+  const count=Math.min(N,MAX);
+  const half=Math.floor(count/2);
+  for(let i=0;i<count;i++){
+    cond_[i]=0; cloud_[i]=i<half?0:1;
+    placeParticle(i,cloud_[i]);
+  }
+  flushGPU();
+  // Zoom out so both large clouds are fully visible
+  const prevZoom=zoom; zoom=62;
+  setTimeout(()=>{
+    if(myGen!==collisionGen)return;
+    colliding=false;
+    for(let i=0;i<MAX;i++) cloud_[i]=0;
+    zoom=prevZoom;
+    T=Math.min(T*1.8,500);
+    addLog('Post-collision thermalisation.','hi');
+    initParticles();
+  },12000);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  CONTROLS
+// ═══════════════════════════════════════════════════════════
+function updateFill(id,fillId){
+  const el=document.getElementById(id);
+  const fill=document.getElementById(fillId);
+  if(!el||!fill)return;
+  const pct=(el.value-el.min)/(el.max-el.min)*100;
+  fill.style.width=pct+'%';
+}
+function initFills(){
+  updateFill('sEta','fEta'); updateFill('sTF','fTF');
+  updateFill('sSL','fSL');  updateFill('sAC','fAC'); updateFill('sTS','fTS');
+}
+
+document.getElementById('sTS').addEventListener('input',function(){
+  timeScale=parseFloat(this.value); document.getElementById('vTS').textContent=timeScale.toFixed(1)+'×';
+  updateFill('sTS','fTS');
+});
+
+document.getElementById('sEta').addEventListener('input',function(){
+  eta=parseFloat(this.value); document.getElementById('vEta').textContent=eta.toFixed(1);
+  updateFill('sEta','fEta');
+});
+document.getElementById('sTF').addEventListener('input',function(){
+  omega=parseFloat(this.value); document.getElementById('vTF').textContent=omega.toFixed(1);
+  phaseDirty=true; addLog('ω → '+omega.toFixed(1)); updateFill('sTF','fTF');
+});
+document.getElementById('sSL').addEventListener('input',function(){
+  a_s=parseFloat(this.value); document.getElementById('vSL').textContent=a_s.toFixed(1);
+  addLog('a_s → '+a_s.toFixed(1)); updateFill('sSL','fSL');
+});
+document.getElementById('sAC').addEventListener('input',function(){
+  const newN=parseInt(this.value);
+  document.getElementById('vAC').textContent=newN;
+  if(newN>N){
+    const oldC=Math.min(N,MAX), newC=Math.min(newN,MAX);
+    for(let i=oldC;i<newC;i++) placeParticle(i,0);
+    N=newN; geo.setDrawRange(0,Math.min(N,MAX)); flushGPU();
+  } else {
+    const newC=Math.min(newN,MAX);
+    for(let i=newC;i<Math.min(N,MAX);i++){
+      px_[i*3]=px_[i*3+1]=px_[i*3+2]=0;
+      pv_[i*3]=pv_[i*3+1]=pv_[i*3+2]=0;
+      pc_[i*3]=pc_[i*3+1]=pc_[i*3+2]=0;
+      ps_[i]=0; cond_[i]=0;
+    }
+    N=newN; geo.setDrawRange(0,Math.min(N,MAX)); flushGPU();
+  }
+  phaseDirty=true; addLog('N → '+N); updateFill('sAC','fAC');
+});
+document.getElementById('playBtn').addEventListener('click',function(){
+  running=!running;
+  this.innerHTML=running?S.pause+'Pause':S.play+'Play';
+  this.classList.toggle('ac',running);
+});
+document.getElementById('resetBtn').addEventListener('click',()=>{
+  T=500; autoCool=false; autoHeat=false; running=true; colliding=false; collisionGen++;
+  timeScale=1.0; document.getElementById('sTS').value=1; document.getElementById('vTS').textContent='1.0×';
+  vortexMode=false; laserStirMode=false; tofMode=false; tofT=0;
+  document.body.classList.remove('laser-mode');
+  vortexCores=[]; buildVortexMarkers([]);
+  document.getElementById('tofOverlay').style.opacity='0';
+  N=parseInt(document.getElementById('sAC').value)||900;
+  document.getElementById('vAC').textContent=N;
+  document.getElementById('coolBtn').classList.remove('on');
+  document.getElementById('coolBtn').innerHTML=S.cool+'Cool to BEC';
+  document.getElementById('heatBtn').classList.remove('on');
+  document.getElementById('heatBtn').innerHTML=S.heat+'Heat Up';
+  document.getElementById('vortexBtn').classList.remove('on');
+  document.getElementById('vortexBtn').innerHTML=`<svg width="13" height="13" viewBox="0 0 11 11" fill="none"><path d="M5.5 2 C7.5 2 9 3.5 9 5.5 C9 7.5 7.5 9 5.5 9 C3.5 9 2.5 7.5 3 6 C3.5 4.5 5 4 6 5 C7 6 6 8 5.5 8" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg>Vortices`;
+  document.getElementById('stirBtn').classList.remove('on');
+  document.getElementById('stirBtn').innerHTML=`<svg width="13" height="13" viewBox="0 0 11 11" fill="none"><circle cx="5.5" cy="5.5" r="1" fill="currentColor"/><path d="M5.5 1.5 C8 1.5 9.5 3.5 9.5 5.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" fill="none"/><path d="M5.5 9.5 C3 9.5 1.5 7.5 1.5 5.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" fill="none"/></svg>Laser Stir`;
+  document.getElementById('playBtn').innerHTML=S.pause+'Pause';
+  document.getElementById('playBtn').classList.add('ac');
+  initParticles(); initFills(); phaseDirty=true; addLog('Reset → 500 nK.','warn');
+});
+document.getElementById('coolBtn').addEventListener('click',function(){
+  autoCool=!autoCool;
+  this.classList.toggle('on',autoCool);
+  this.innerHTML=autoCool?S.stop+'Stop Cooling':S.cool+'Cool to BEC';
+  addLog(autoCool?'Evaporative cooling on.':'Cooling paused.');
+  if(autoCool && autoHeat){
+    autoHeat=false;
+    document.getElementById('heatBtn').classList.remove('on');
+    document.getElementById('heatBtn').innerHTML=S.heat+'Heat Up';
+  }
+});
+document.getElementById('heatBtn').addEventListener('click',function(){
+  if(colliding)return;
+  autoHeat=!autoHeat;
+  this.classList.toggle('on',autoHeat);
+  this.innerHTML=autoHeat?S.stop+'Stop Heating':S.heat+'Heat Up';
+  addLog(autoHeat?'Heating — condensate scattering…':'Heating paused.','warn');
+  if(autoHeat && autoCool){
+    autoCool=false;
+    document.getElementById('coolBtn').classList.remove('on');
+    document.getElementById('coolBtn').innerHTML=S.cool+'Cool to BEC';
+  }
+});
+document.getElementById('collideBtn').addEventListener('click',()=>{
+  if(colliding)return;
+  T=Math.min(T,150);
+  if(autoCool){
+    autoCool=false;
+    document.getElementById('coolBtn').classList.remove('on');
+    document.getElementById('coolBtn').innerHTML=S.cool+'Cool to BEC';
+    addLog('Cooling paused for collision.');
+  }
+  if(autoHeat){
+    autoHeat=false;
+    document.getElementById('heatBtn').classList.remove('on');
+    document.getElementById('heatBtn').innerHTML=S.heat+'Heat Up';
+    addLog('Heating paused for collision.');
+  }
+  launchCollision();
+});
+
+// ═══════════════════════════════════════════════════════════
+//  NEW FEATURE HANDLERS
+// ═══════════════════════════════════════════════════════════
+
+// ── Vortex nucleation ──────────────────────────────────────
+document.getElementById('vortexBtn').addEventListener('click',function(){
+  if(n0f()<0.1){
+    addLog('Need BEC first — cool below Tc.','warn'); return;
+  }
+  vortexMode=!vortexMode;
+  this.classList.toggle('on',vortexMode);
+  if(vortexMode){
+    const myGen=++vortexGen;
+    // Spawn vortex cores in a lattice pattern (Abrikosov-like)
+    const tf=tfR();
+    vortexCores=[];
+    const nc=Math.min(6, Math.floor(n0f()*8)+1);
+    for(let k=0;k<nc;k++){
+      const ang=(k/nc)*Math.PI*2;
+      const r=tf*0.45;
+      vortexCores.push({x:r*Math.cos(ang), y:r*Math.sin(ang), charge:k%2===0?1:-1});
+    }
+    buildVortexMarkers(vortexCores);
+    addLog(`Vortex lattice nucleated — ${nc} cores.`,'hi');
+    this.innerHTML=`<svg width="13" height="13" viewBox="0 0 11 11" fill="none"><path d="M5.5 2 C7.5 2 9 3.5 9 5.5 C9 7.5 7.5 9 5.5 9 C3.5 9 2.5 7.5 3 6 C3.5 4.5 5 4 6 5 C7 6 6 8 5.5 8" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg>Stop`;
+  } else {
+    vortexCores=[];
+    buildVortexMarkers([]);
+    addLog('Vortices annihilated.');
+    this.innerHTML=`<svg width="13" height="13" viewBox="0 0 11 11" fill="none"><path d="M5.5 2 C7.5 2 9 3.5 9 5.5 C9 7.5 7.5 9 5.5 9 C3.5 9 2.5 7.5 3 6 C3.5 4.5 5 4 6 5 C7 6 6 8 5.5 8" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg>Vortices`;
+  }
+});
+
+// ── Laser stirrer ──────────────────────────────────────────
+document.getElementById('stirBtn').addEventListener('click',function(){
+  laserStirMode=!laserStirMode;
+  this.classList.toggle('on',laserStirMode);
+  document.body.classList.toggle('laser-mode',laserStirMode);
+  if(laserStirMode){
+    addLog('Laser stirrer ON — move cursor over cloud.','hi');
+    this.innerHTML=`<svg width="13" height="13" viewBox="0 0 11 11" fill="none"><circle cx="5.5" cy="5.5" r="1" fill="currentColor"/><path d="M5.5 1.5 C8 1.5 9.5 3.5 9.5 5.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" fill="none"/><path d="M5.5 9.5 C3 9.5 1.5 7.5 1.5 5.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" fill="none"/></svg>Stop Stir`;
+  } else {
+    addLog('Laser stirrer off.');
+    this.innerHTML=`<svg width="13" height="13" viewBox="0 0 11 11" fill="none"><circle cx="5.5" cy="5.5" r="1" fill="currentColor"/><path d="M5.5 1.5 C8 1.5 9.5 3.5 9.5 5.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" fill="none"/><path d="M5.5 9.5 C3 9.5 1.5 7.5 1.5 5.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" fill="none"/></svg>Laser Stir`;
+  }
+});
+
+// ── Manual TOF (release trap) ───────────────────────────────
+document.getElementById('tofBtn').addEventListener('click',function(){
+  if(tofMode||colliding)return;
+  tofMode=true; tofT=0;
+  const overlay=document.getElementById('tofOverlay');
+  overlay.style.opacity='1';
+  setTimeout(()=>{overlay.style.opacity='0';},900);
+  addLog('Trap released — ballistic expansion!','hi');
+  setTimeout(()=>{tofMode=false; tofT=0; addLog('Trap re-engaged.');}, 6000);
+});
+document.getElementById('snapBtn').addEventListener('click',()=>{
+  // Composite: grab the active canvas and the 2D overlays
+  const src = surfaceMode ? document.getElementById('c2') : document.getElementById('c');
+  const out = document.createElement('canvas');
+  out.width = src.width; out.height = src.height;
+  const ctx = out.getContext('2d');
+  ctx.drawImage(src, 0, 0);
+  // Draw dist canvas overlay (bottom-left)
+  if(!surfaceMode){
+    const dc=document.getElementById('distCanvas');
+    ctx.drawImage(dc, 22, src.height-dc.offsetHeight-24, dc.offsetWidth||200, dc.offsetHeight||72);
+  }
+  // Watermark
+  ctx.font='bold 13px "JetBrains Mono", monospace';
+  ctx.fillStyle='rgba(255,200,100,0.55)';
+  ctx.fillText(`BEC · T=${Math.round(T)}nK · N₀=${(n0f()*100).toFixed(0)}%`, 18, src.height-10);
+  const link=document.createElement('a');
+  link.download=`bec_T${Math.round(T)}nK.png`;
+  link.href=out.toDataURL('image/png');
+  link.click();
+  addLog('Snapshot saved.','hi');
+});
+
+// ── Presets ────────────────────────────────────────────────
+function applyPreset(name){
+  // Reset state
+  autoCool=false; autoHeat=false; colliding=false; collisionGen++;
+  vortexMode=false; laserStirMode=false; tofMode=false;
+  document.body.classList.remove('laser-mode');
+  vortexCores=[]; buildVortexMarkers([]);
+  ['coolBtn','heatBtn','vortexBtn','stirBtn'].forEach(id=>{
+    document.getElementById(id).classList.remove('on');
+  });
+  document.getElementById('coolBtn').innerHTML=S.cool+'Cool to BEC';
+  document.getElementById('heatBtn').innerHTML=S.heat+'Heat Up';
+  document.getElementById('vortexBtn').innerHTML=`<svg width="13" height="13" viewBox="0 0 11 11" fill="none"><path d="M5.5 2 C7.5 2 9 3.5 9 5.5 C9 7.5 7.5 9 5.5 9 C3.5 9 2.5 7.5 3 6 C3.5 4.5 5 4 6 5 C7 6 6 8 5.5 8" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg>Vortices`;
+  document.getElementById('stirBtn').innerHTML=`<svg width="13" height="13" viewBox="0 0 11 11" fill="none"><circle cx="5.5" cy="5.5" r="1" fill="currentColor"/><path d="M5.5 1.5 C8 1.5 9.5 3.5 9.5 5.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" fill="none"/><path d="M5.5 9.5 C3 9.5 1.5 7.5 1.5 5.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" fill="none"/></svg>Laser Stir`;
+  document.getElementById('tofOverlay').style.opacity='0';
+
+  if(name==='bec'){
+    T=18; N=1800; omega=1.2; a_s=1.0; eta=7.0;
+    document.getElementById('sAC').value=N;
+    document.getElementById('sTF').value=omega;
+    document.getElementById('sSL').value=a_s;
+    document.getElementById('sEta').value=eta;
+    addLog('Preset: Pure BEC — deep condensate.','hi');
+  } else if(name==='vortex'){
+    T=8; N=2000; omega=1.8; a_s=1.2; eta=8.0;
+    document.getElementById('sAC').value=N;
+    document.getElementById('sTF').value=omega;
+    document.getElementById('sSL').value=a_s;
+    document.getElementById('sEta').value=eta;
+    addLog('Preset: Vortex lattice conditions.','hi');
+    // Auto-nucleate vortices after init
+    setTimeout(()=>{
+      if(n0f()>0.3){
+        vortexMode=true;
+        const vb=document.getElementById('vortexBtn');
+        vb.classList.add('on');
+        vb.innerHTML=`<svg width="13" height="13" viewBox="0 0 11 11" fill="none"><path d="M5.5 2 C7.5 2 9 3.5 9 5.5 C9 7.5 7.5 9 5.5 9 C3.5 9 2.5 7.5 3 6 C3.5 4.5 5 4 6 5 C7 6 6 8 5.5 8" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg>Stop`;
+        const tf=tfR();
+        vortexCores=[];
+        for(let k=0;k<6;k++){
+          const ang=(k/6)*Math.PI*2;
+          vortexCores.push({x:tf*0.45*Math.cos(ang), y:tf*0.45*Math.sin(ang), charge:k%2===0?1:-1});
+        }
+        buildVortexMarkers(vortexCores);
+        addLog('Vortex lattice nucleated — 6 cores.','hi');
+      }
+    },400);
+  } else if(name==='collapse'){
+    T=5; N=2500; omega=2.0; a_s=0.05; eta=8.0;
+    document.getElementById('sAC').value=N;
+    document.getElementById('sTF').value=omega;
+    document.getElementById('sSL').value=a_s;
+    document.getElementById('sEta').value=eta;
+    addLog('Preset: Near-collapse — low a_s, high N.','warn');
+  } else if(name==='tof'){
+    T=12; N=1200; omega=1.0; a_s=1.0; eta=7.0;
+    document.getElementById('sAC').value=N;
+    document.getElementById('sTF').value=omega;
+    document.getElementById('sSL').value=a_s;
+    document.getElementById('sEta').value=eta;
+    addLog('Preset: Time-of-flight — trap release incoming.','hi');
+    // After a short settle, auto-trigger TOF
+    setTimeout(()=>{
+      tofMode=true; tofT=0;
+      const overlay=document.getElementById('tofOverlay');
+      overlay.style.opacity='1';
+      setTimeout(()=>{overlay.style.opacity='0';},900);
+      addLog('Trap released — ballistic expansion!','hi');
+      // Re-engage trap after 6s
+      setTimeout(()=>{tofMode=false; tofT=0; addLog('Trap re-engaged.');}, 6000);
+    }, 2000);
+  }
+
+  // Update slider displays
+  document.getElementById('vEta').textContent=eta.toFixed(1);
+  document.getElementById('vTF').textContent=omega.toFixed(1);
+  document.getElementById('vSL').textContent=a_s.toFixed(1);
+  document.getElementById('vAC').textContent=N;
+  initFills(); running=true;
+  document.getElementById('playBtn').innerHTML=S.pause+'Pause';
+  document.getElementById('playBtn').classList.add('ac');
+  phaseDirty=true;
+  initParticles();
+}
+
+document.getElementById('presetBEC').addEventListener('click',()=>applyPreset('bec'));
+document.getElementById('presetVortex').addEventListener('click',()=>applyPreset('vortex'));
+document.getElementById('presetCollapse').addEventListener('click',()=>applyPreset('collapse'));
+document.getElementById('presetTOF').addEventListener('click',()=>applyPreset('tof'));
+
+setInterval(()=>{
+  const n0=n0f();
+  if(prevN0<.05&&n0>=.05) addLog('Condensation onset.','hi');
+  if(prevN0<.50&&n0>=.50) addLog('Majority in ground state!','hi');
+  if(prevN0>.05&&n0<.05){
+    addLog('Condensate evaporated.','warn');
+    if(vortexMode){
+      vortexMode=false;
+      vortexCores=[]; buildVortexMarkers([]);
+      const vb=document.getElementById('vortexBtn');
+      vb.classList.remove('on');
+      vb.innerHTML=`<svg width="13" height="13" viewBox="0 0 11 11" fill="none"><path d="M5.5 2 C7.5 2 9 3.5 9 5.5 C9 7.5 7.5 9 5.5 9 C3.5 9 2.5 7.5 3 6 C3.5 4.5 5 4 6 5 C7 6 6 8 5.5 8" stroke="currentColor" stroke-width="1.2" fill="none" stroke-linecap="round"/></svg>Vortices`;
+      addLog('Vortices destroyed — superfluid order lost.','warn');
+    }
+  }
+  if(prevN0>.30&&n0<.30&&autoHeat) addLog('Condensate fragmenting…','warn');
+  prevN0=n0; phaseDirty=true;
+},400);
+
+window.addEventListener('resize',()=>{
+  renderer.setSize(innerWidth,innerHeight);
+  camera.aspect=innerWidth/innerHeight;
+  camera.updateProjectionMatrix();
+  resizeDist(); phaseDirty=true;
+});
+
+// ═══════════════════════════════════════════════════════════
+//  RENDER LOOP
+// ═══════════════════════════════════════════════════════════
+let lastTime=performance.now();
+function animate(ts){
+  requestAnimationFrame(animate);
+  const dt=Math.min(0.04,(ts-lastTime)/1000)*timeScale; lastTime=ts; frame++;
+  if(running){
+    tickPhysics(dt);
+    updateVisuals();
+    if(frame%2===0) updateStats();
+    if(frame%3===0) drawDist();
+    if(frame%8===0) drawPhase();
+    n0disp += (n0f()-n0disp)*0.04;
+    simT2+=dt;
+    if(surfaceMode) updateSurface(simT2);
+  }
+  if(surfaceMode){
+    camera2.position.set(Math.sin(rotY2)*Math.cos(rotX2)*zoom2, Math.sin(rotX2)*zoom2*0.85+4, Math.cos(rotY2)*Math.cos(rotX2)*zoom2);
+    camera2.lookAt(0,2.5,0);
+    renderer2.render(scene2,camera2);
+    return;
+  }
+  pivot.rotation.x=rotX;
+  pivot.rotation.y=rotY+(running?frame:0)*0.0012;
+  camera.position.z=zoom;
+  camera.lookAt(0,0,0);
+  if(running){const lt=ts*0.0004;keyL.position.x=14*Math.cos(lt);keyL.position.z=10*Math.sin(lt);}
+  renderer.render(scene,camera);
+}
+
+// ═══════════════════════════════════════════════════════════
+//  SURFACE VIEW (alternate visualization mode)
+// ═══════════════════════════════════════════════════════════
+let surfaceMode=false, n0disp=0, simT2=0;
+const canvas2=document.getElementById('c2');
+const renderer2=new THREE.WebGLRenderer({canvas:canvas2,antialias:true,alpha:false});
+renderer2.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer2.setSize(innerWidth,innerHeight);
+renderer2.setClearColor(0x0e0302,1);
+renderer2.toneMapping=THREE.ACESFilmicToneMapping;
+renderer2.toneMappingExposure=1.8;
+const scene2=new THREE.Scene();
+scene2.fog=new THREE.FogExp2(0x0e0302,0.005);
+const camera2=new THREE.PerspectiveCamera(50,innerWidth/innerHeight,0.1,1000);
+addEventListener('resize',()=>{
+  renderer2.setSize(innerWidth,innerHeight);
+  camera2.aspect=innerWidth/innerHeight; camera2.updateProjectionMatrix();
+});
+const pivot2=new THREE.Object3D(); scene2.add(pivot2);
+let rotY2=0.6, rotX2=0.55, zoom2=34;
+const keyL2=new THREE.PointLight(0xff7050,7.0,150); keyL2.position.set(14,20,12); scene2.add(keyL2);
+scene2.add(new THREE.AmbientLight(0x4a1208,3.0));
+const fillL2=new THREE.PointLight(0xcc4422,4.2,110); fillL2.position.set(-16,8,-10); scene2.add(fillL2);
+const gridHelper2=new THREE.GridHelper(28,28,0x4a1810,0x2a0c08);
+gridHelper2.position.y=-0.02; pivot2.add(gridHelper2);
+
+const SIZE2=24, SEG2=64;
+const geo2=new THREE.PlaneGeometry(SIZE2,SIZE2,SEG2,SEG2);
+geo2.rotateX(-Math.PI/2);
+const posAttr2=geo2.attributes.position;
+const nVerts2=posAttr2.count;
+const colorArr2=new Float32Array(nVerts2*3);
+geo2.setAttribute('color',new THREE.BufferAttribute(colorArr2,3));
+const baseX2=new Float32Array(nVerts2), baseZ2=new Float32Array(nVerts2);
+for(let i=0;i<nVerts2;i++){ baseX2[i]=posAttr2.getX(i); baseZ2[i]=posAttr2.getZ(i); }
+const mat2=new THREE.MeshPhongMaterial({vertexColors:true,shininess:18,specular:0x442010,flatShading:false});
+const mesh2=new THREE.Mesh(geo2,mat2); pivot2.add(mesh2);
+const wireMat2=new THREE.MeshBasicMaterial({color:0xff7a2f,wireframe:true,transparent:true,opacity:0.0});
+const wireMesh2=new THREE.Mesh(geo2,wireMat2); wireMesh2.scale.set(1.001,1.001,1.001); pivot2.add(wireMesh2);
+
+const ramp2=[
+  {t:0.00,c:new THREE.Color(0x1a0402)},{t:0.15,c:new THREE.Color(0x5a0e06)},
+  {t:0.35,c:new THREE.Color(0xc02010)},{t:0.58,c:new THREE.Color(0xff5018)},
+  {t:0.78,c:new THREE.Color(0xff8c30)},{t:1.00,c:new THREE.Color(0xffb050)}
+];
+function rampColor2(t,out){
+  t=Math.max(0,Math.min(1,t));
+  for(let i=0;i<ramp2.length-1;i++){
+    if(t<=ramp2[i+1].t){
+      const span=ramp2[i+1].t-ramp2[i].t;
+      const f=span>0?(t-ramp2[i].t)/span:0;
+      out.copy(ramp2[i].c).lerp(ramp2[i+1].c,f); return out;
+    }
+  }
+  out.copy(ramp2[ramp2.length-1].c); return out;
+}
+function noise2(x,z,t){
+  return Math.sin(x*1.7+t*1.8)*Math.cos(z*1.3-t*1.4)
+       + 0.6*Math.sin((x+z)*0.9+t*2.6)*Math.sin((x-z)*1.05-t*2.1)
+       + 0.4*Math.sin(x*3.2-t*3.4)*Math.cos(z*2.6+t*3.0)
+       + 0.25*Math.sin(x*5.1+t*4.4)*Math.sin(z*4.3-t*3.7);
+}
+const tmpCol2=new THREE.Color();
+function thermalSigma2(){ return Math.max(1.6, 5.5*Math.sqrt(T/500)/Math.sqrt(omega)); }
+function condSigma2(){ return Math.max(0.35, 1.0/Math.pow(omega,0.4)*Math.pow(900/Math.max(N,50),0.12)); }
+function updateSurface(t){
+  const n0=n0disp;
+  const thermSig=thermalSigma2(), condSig=condSigma2();
+  const thermAmp=2.6*(1-n0)+0.25;
+  const condAmp=15.0*n0;
+  const spikeAmp=(T/500)*2.6*(1-n0);
+  for(let i=0;i<nVerts2;i++){
+    const x=baseX2[i], z=baseZ2[i];
+    const r2=x*x+z*z;
+    const therm=thermAmp*Math.exp(-r2/(2*thermSig*thermSig));
+    const cond=condAmp*Math.exp(-r2/(2*condSig*condSig));
+    const env=Math.exp(-r2/(2*(thermSig*1.6)*(thermSig*1.6)));
+    let h=therm+cond+spikeAmp*noise2(x*0.6,z*0.6,t)*env;
+    if(h<0)h*=0.25;
+    posAttr2.setY(i,h);
+    rampColor2(h/17.5,tmpCol2);
+    colorArr2[i*3]=tmpCol2.r; colorArr2[i*3+1]=tmpCol2.g; colorArr2[i*3+2]=tmpCol2.b;
+  }
+  posAttr2.needsUpdate=true; geo2.attributes.color.needsUpdate=true; geo2.computeVertexNormals();
+}
+// drag/zoom for surface canvas
+let dragging2=false,lX2=0,lY2=0,tD2=0;
+canvas2.addEventListener('mousedown',e=>{dragging2=true;lX2=e.clientX;lY2=e.clientY;canvas2.style.cursor='grabbing';});
+addEventListener('mouseup',()=>{dragging2=false;canvas2.style.cursor='grab';});
+addEventListener('mousemove',e=>{
+  if(!dragging2)return;
+  rotY2+=(e.clientX-lX2)*0.006; rotX2+=(e.clientY-lY2)*0.006;
+  rotX2=Math.max(0.05,Math.min(1.45,rotX2)); lX2=e.clientX; lY2=e.clientY;
+});
+canvas2.addEventListener('wheel',e=>{zoom2=Math.max(10,Math.min(60,zoom2+e.deltaY*0.04));e.preventDefault();},{passive:false});
+canvas2.addEventListener('touchstart',e=>{
+  if(e.touches.length===1){lX2=e.touches[0].clientX;lY2=e.touches[0].clientY;}
+  if(e.touches.length===2){const dx=e.touches[0].clientX-e.touches[1].clientX,dy=e.touches[0].clientY-e.touches[1].clientY;tD2=Math.hypot(dx,dy);}
+},{passive:true});
+canvas2.addEventListener('touchmove',e=>{
+  if(e.touches.length===1){
+    rotY2+=(e.touches[0].clientX-lX2)*0.008; rotX2+=(e.touches[0].clientY-lY2)*0.008;
+    rotX2=Math.max(0.05,Math.min(1.45,rotX2)); lX2=e.touches[0].clientX; lY2=e.touches[0].clientY;
+  }
+  if(e.touches.length===2){
+    const dx=e.touches[0].clientX-e.touches[1].clientX,dy=e.touches[0].clientY-e.touches[1].clientY;
+    const d=Math.hypot(dx,dy); zoom2=Math.max(10,Math.min(60,zoom2-(d-tD2)*0.1)); tD2=d;
+  }
+  e.preventDefault();
+},{passive:false});
+
+document.getElementById('viewToggle').addEventListener('click',function(){
+  surfaceMode=!surfaceMode;
+  document.getElementById('c').style.display=surfaceMode?'none':'block';
+  canvas2.style.display=surfaceMode?'block':'none';
+  document.getElementById('distCanvas').style.display=surfaceMode?'none':'';
+  document.querySelector('.dist-widget').style.display=surfaceMode?'none':'block';
+  document.getElementById('tBarWrap').style.display=surfaceMode?'none':'';
+  document.getElementById('collideBtn').disabled=surfaceMode;
+  document.getElementById('vortexBtn').disabled=surfaceMode;
+  document.getElementById('stirBtn').disabled=surfaceMode;
+  this.innerHTML=surfaceMode?S.atom+'Particle':S.wave+'Surface';
+  addLog(surfaceMode?'Switched to density-surface view.':'Switched to particle view.');
+});
+
+updateSurface(0);
+// ═══════════════════════════════════════════════════════════
+
+initParticles(); initFills();
+requestAnimationFrame(()=>{ resizeDist(); drawPhase(); requestAnimationFrame(animate); });
+</script>
+</body>
+</html>
