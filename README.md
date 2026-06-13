@@ -4,7 +4,7 @@ A real-time, interactive 3D laboratory for Bose–Einstein condensation, running
 
 ![status](https://img.shields.io/badge/status-active-success) ![license](https://img.shields.io/badge/license-MIT-orange)
 
-**🔗 Live Demo:** [nazat02.github.io/Bose-Einstein-Condensed](https://nazat02.github.io/Bose-Einstein-Condensed/)
+**🔗 Live Demo:** [nazat02.github.io/Bose-Einstein-Condensed](https://nazat02.github.io/Bose-Einstein-Condensate/)
 
 ![Preview](screenshot.png)
 
@@ -28,8 +28,8 @@ A real-time, interactive 3D laboratory for Bose–Einstein condensation, running
 No build step, no dependencies to install — it's plain HTML/CSS/JS with Three.js loaded via CDN.
 
 ```bash
-git clone https://github.com/nazat02/Bose-Einstein-Condensed.git
-cd Bose-Einstein-Condensed
+git clone https://github.com/nazat02/Bose-Einstein-Condensate.git
+cd Bose-Einstein-Condensate
 ```
 
 Then simply open the files in a browser:
