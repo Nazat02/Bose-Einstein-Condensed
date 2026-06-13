@@ -59,12 +59,41 @@ nav{
 }
 .nav-cta:hover{background:rgba(255,122,47,0.15); box-shadow:0 0 20px rgba(255,122,47,0.25)}
 @media(max-width:760px){ .nav-links a:not(.nav-cta){display:none} }
+@media(max-width:600px){
+  nav{padding:12px 16px}
+  .brand-sub{display:none}
+  .brand-div{display:none}
+  .nav-cta{padding:7px 14px; font-size:10px}
+  .hero{padding:96px 18px 56px; min-height:auto}
+  .hero-logo{width:60px; height:60px; margin-bottom:16px}
+  .eyebrow{font-size:10px; letter-spacing:.16em; text-align:center}
+  .eyebrow::before,.eyebrow::after{width:16px}
+  .hero h1{font-size:clamp(34px,11vw,46px); margin-bottom:18px}
+  .hero p{font-size:14.5px; margin-bottom:32px}
+  .hero-ctas{width:100%; gap:10px}
+  .btn-primary,.btn-secondary{width:100%; justify-content:center; padding:14px 20px}
+  .preview-frame{border-radius:10px; aspect-ratio:4/5; max-width:100%}
+  section{padding:64px 0}
+  .section-head{margin:0 auto 40px}
+  .section-head h2{font-size:clamp(24px,7vw,32px)}
+  .journey-step{grid-template-columns:1fr; gap:6px; padding:20px 0}
+  .journey-temp{text-align:left}
+  .specs{grid-template-columns:repeat(2,1fr)}
+  .cta-section{padding:72px 0}
+  footer{flex-direction:column; text-align:center; padding:32px 0}
+}
 
 /* ── Hero ── */
 .hero{
   min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center;
   text-align:center; padding:140px 24px 80px; position:relative; z-index:1;
 }
+.hero-logo{
+  margin-bottom:24px; border-radius:18px;
+  filter:drop-shadow(0 10px 40px rgba(255,90,40,0.35));
+  animation:heroLogoFloat 6s ease-in-out infinite;
+}
+@keyframes heroLogoFloat{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
 .eyebrow{
   font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:.22em;
   color:var(--label); text-transform:uppercase; margin-bottom:22px;
@@ -110,7 +139,7 @@ nav{
   background:radial-gradient(circle at 50% 50%, rgba(255,200,140,0.35), rgba(255,90,40,0.15) 35%, transparent 65%);
   filter:blur(2px);
 }
-.surface-graph{position:absolute; inset:0; width:100%; height:100%}
+.surface-graph{position:absolute; inset:0; width:100%; height:100%; display:block}
 .orbit-dot{
   position:absolute; width:5px; height:5px; border-radius:50%; background:var(--amber);
   box-shadow:0 0 8px var(--amber); top:50%; left:50%;
@@ -213,15 +242,18 @@ footer{
 <nav>
   <div class="brand">
     <svg class="logo-icon" width="30" height="30" viewBox="0 0 32 32" fill="none">
-      <circle cx="16" cy="16" r="14" stroke="var(--border-hi)" stroke-width="1.2"/>
-      <circle cx="16" cy="16" r="6.5" fill="url(#logoGlow)"/>
-      <text x="16" y="20.5" text-anchor="middle" font-family="JetBrains Mono, monospace" font-weight="700" font-size="13" fill="#1a0500">B</text>
+      <defs><clipPath id="logoClip"><rect x="1" y="1" width="30" height="30" rx="8"/></clipPath></defs>
+      <g clip-path="url(#logoClip)">
+        <rect x="1" y="1" width="30" height="30" fill="#1a0700"/>
+        <path d="M1 31 L31 1 V31 Z" fill="url(#logoGlow)" opacity="0.85"/>
+      </g>
+      <rect x="1" y="1" width="30" height="30" rx="8" stroke="var(--border-hi)" stroke-width="1"/>
+      <path d="M11 8h7.2c2.4 0 4.3 1.7 4.3 3.9 0 1.5-.8 2.7-2 3.3 1.5.6 2.5 2 2.5 3.7 0 2.4-2 4.1-4.6 4.1H11V8zm3 2.4v4.2h3.6c1.3 0 2.3-.9 2.3-2.1s-1-2.1-2.3-2.1H14zm0 6.6v4.6h4c1.4 0 2.5-1 2.5-2.3 0-1.3-1.1-2.3-2.5-2.3H14z" fill="#ffe8d6"/>
       <defs>
-        <radialGradient id="logoGlow" cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stop-color="#ffe8d6"/>
-          <stop offset="55%" stop-color="#ff7a2f"/>
-          <stop offset="100%" stop-color="#e03020"/>
-        </radialGradient>
+        <linearGradient id="logoGlow" x1="0" y1="1" x2="1" y2="0">
+          <stop offset="0%" stop-color="#e03020"/>
+          <stop offset="100%" stop-color="#ffb040"/>
+        </linearGradient>
       </defs>
     </svg>
     <span class="brand-mark">BEC</span>
@@ -237,6 +269,21 @@ footer{
 </nav>
 
 <section class="hero">
+  <svg class="hero-logo" width="84" height="84" viewBox="0 0 32 32" fill="none">
+    <defs><clipPath id="heroLogoClip"><rect x="1" y="1" width="30" height="30" rx="8"/></clipPath></defs>
+    <g clip-path="url(#heroLogoClip)">
+      <rect x="1" y="1" width="30" height="30" fill="#1a0700"/>
+      <path d="M1 31 L31 1 V31 Z" fill="url(#heroLogoGrad)" opacity="0.85"/>
+    </g>
+    <rect x="1" y="1" width="30" height="30" rx="8" stroke="var(--border-hi)" stroke-width="1"/>
+    <path d="M11 8h7.2c2.4 0 4.3 1.7 4.3 3.9 0 1.5-.8 2.7-2 3.3 1.5.6 2.5 2 2.5 3.7 0 2.4-2 4.1-4.6 4.1H11V8zm3 2.4v4.2h3.6c1.3 0 2.3-.9 2.3-2.1s-1-2.1-2.3-2.1H14zm0 6.6v4.6h4c1.4 0 2.5-1 2.5-2.3 0-1.3-1.1-2.3-2.5-2.3H14z" fill="#ffe8d6"/>
+    <defs>
+      <linearGradient id="heroLogoGrad" x1="0" y1="1" x2="1" y2="0">
+        <stop offset="0%" stop-color="#e03020"/>
+        <stop offset="100%" stop-color="#ffb040"/>
+      </linearGradient>
+    </defs>
+  </svg>
   <div class="eyebrow">Real-time quantum gas simulation</div>
   <h1>Watch matter become <span class="grad">one quantum wave</span></h1>
   <p>An interactive 3D laboratory for Bose–Einstein condensation. Cool a cloud of atoms toward absolute zero, trigger vortices, collisions, and collapse, and watch thousands of particles fall into a single coherent quantum state — live, in your browser.</p>
@@ -246,18 +293,7 @@ footer{
   </div>
 
   <div class="preview-frame">
-    <svg class="surface-graph" viewBox="0 0 400 250" preserveAspectRatio="xMidYMid meet">
-      <defs>
-        <linearGradient id="peakGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#ffe8d6"/>
-          <stop offset="35%" stop-color="#ffb050"/>
-          <stop offset="70%" stop-color="#ff5018"/>
-          <stop offset="100%" stop-color="#5a0e06"/>
-        </linearGradient>
-      </defs>
-      <g stroke="#ff7a2f" stroke-width="0.6" fill="none" opacity="0.85"></g>
-    </svg>
-    <script id="surfaceData" type="application/json"></script>
+    <canvas class="surface-graph" id="surfaceCanvas"></canvas>
     <div id="orbitField"></div>
     <div class="frame-overlay-ui">
       <span class="frame-pill">BEC FORMED</span>
@@ -392,72 +428,119 @@ footer{
 </footer>
 
 <script>
-// Build a 3D-projected surface mesh (BEC density peak) inside the SVG
+// Render a smooth, high-resolution BEC density surface onto a canvas
 (function(){
-  const svg = document.querySelector('.surface-graph');
-  const g = svg.querySelector('g');
-  const COLS=22, ROWS=14;
-  const W=400,H=250, cx=W/2, cy=H*0.62;
-  const dx=18, dy=16; // pixel step in projected space
-  const skewY=0.42; // perspective tilt
+  const canvas = document.getElementById('surfaceCanvas');
+  const frame = canvas.parentElement;
+  const ctx = canvas.getContext('2d');
+
+  const COLS=90, ROWS=60;
+  const cx0=0.5, cy0=0.60;
+  const skewY=0.42;
 
   function height(gx,gz){
-    const x=(gx-COLS/2)/2.4, z=(gz-ROWS/2)/2.0;
+    const x=(gx-COLS/2)/(COLS/9.2), z=(gz-ROWS/2)/(ROWS/9.0);
     const r2=x*x+z*z;
-    const cond=15*Math.exp(-r2/(2*0.65*0.65));
-    const therm=2*Math.exp(-r2/(2*3*3));
+    const cond=15*Math.exp(-r2/(2*0.62*0.62));
+    const therm=2*Math.exp(-r2/(2*2.8*2.8));
     return cond+therm;
   }
-  function project(gx,gz,h){
-    const px = cx + (gx-COLS/2)*dx - (gz-ROWS/2)*dx*0.35;
-    const py = cy + (gz-ROWS/2)*dy*skewY - h*3.1;
-    return [px,py];
-  }
+
   function colorFor(h){
-    const t=Math.min(1,h/17);
-    const stops=[[0.00,[26,4,2]],[0.15,[90,14,6]],[0.35,[192,32,16]],[0.58,[255,80,24]],[0.78,[255,140,48]],[1.00,[255,176,80]]];
+    const t=Math.min(1,Math.max(0,h/17));
+    const stops=[[0.00,[18,3,2]],[0.14,[80,12,5]],[0.34,[188,30,15]],[0.56,[255,82,24]],[0.76,[255,142,50]],[1.00,[255,232,214]]];
     for(let i=0;i<stops.length-1;i++){
       if(t<=stops[i+1][0]){
         const span=stops[i+1][0]-stops[i][0];
         const f=span>0?(t-stops[i][0])/span:0;
         const a=stops[i][1],b=stops[i+1][1];
         const c=a.map((v,idx)=>Math.round(v+(b[idx]-v)*f));
-        return `rgb(${c[0]},${c[1]},${c[2]})`;
+        return c;
       }
     }
-    return 'rgb(255,176,80)';
+    return [255,232,214];
   }
 
-  // draw filled quads back-to-front for a solid shaded surface, plus wire overlay
-  for(let gz=0; gz<ROWS-1; gz++){
-    for(let gx=0; gx<COLS-1; gx++){
-      const h00=height(gx,gz), h10=height(gx+1,gz), h01=height(gx,gz+1), h11=height(gx+1,gz+1);
-      const p00=project(gx,gz,h00), p10=project(gx+1,gz,h10), p11=project(gx+1,gz+1,h11), p01=project(gx,gz+1,h01);
-      const avgH=(h00+h10+h01+h11)/4;
-      const poly=document.createElementNS('http://www.w3.org/2000/svg','polygon');
-      poly.setAttribute('points', `${p00.join(',')} ${p10.join(',')} ${p11.join(',')} ${p01.join(',')}`);
-      poly.setAttribute('fill', colorFor(avgH));
-      poly.setAttribute('opacity', 0.92);
-      poly.setAttribute('stroke', 'rgba(0,0,0,0.18)');
-      poly.setAttribute('stroke-width','0.4');
-      g.appendChild(poly);
+  function draw(){
+    const rect = frame.getBoundingClientRect();
+    const W = rect.width, H = rect.height;
+    const dpr = Math.min(window.devicePixelRatio||1, 2);
+    canvas.width = W*dpr; canvas.height = H*dpr;
+    canvas.style.width = W+'px'; canvas.style.height = H+'px';
+    ctx.setTransform(dpr,0,0,dpr,0,0);
+    ctx.clearRect(0,0,W,H);
+
+    const cx=W*cx0, cy=H*cy0;
+    const dx=W/COLS*1.05, dy=H/ROWS*1.05;
+    const hScale=H*0.018;
+
+    function project(gx,gz,h){
+      const px = cx + (gx-COLS/2)*dx - (gz-ROWS/2)*dx*0.35;
+      const py = cy + (gz-ROWS/2)*dy*skewY - h*hScale;
+      return [px,py];
     }
-  }
-  // subtle wire highlight over the peak
-  for(let gz=0; gz<ROWS; gz+=2){
-    let d='';
-    for(let gx=0; gx<COLS; gx++){
-      const h=height(gx,gz);
-      const [px,py]=project(gx,gz,h);
-      d += (gx===0?'M':'L')+px.toFixed(1)+' '+py.toFixed(1)+' ';
+
+    // back-to-front, fine quads onto an offscreen canvas, then blur once
+    const off = document.createElement('canvas');
+    off.width = canvas.width; off.height = canvas.height;
+    const octx = off.getContext('2d');
+    octx.setTransform(dpr,0,0,dpr,0,0);
+    for(let gz=0; gz<ROWS-1; gz++){
+      for(let gx=0; gx<COLS-1; gx++){
+        const h00=height(gx,gz), h10=height(gx+1,gz), h01=height(gx,gz+1), h11=height(gx+1,gz+1);
+        const p00=project(gx,gz,h00), p10=project(gx+1,gz,h10), p11=project(gx+1,gz+1,h11), p01=project(gx,gz+1,h01);
+        const avgH=(h00+h10+h01+h11)/4;
+        const c=colorFor(avgH);
+        octx.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`;
+        octx.beginPath();
+        octx.moveTo(p00[0],p00[1]);
+        octx.lineTo(p10[0],p10[1]);
+        octx.lineTo(p11[0],p11[1]);
+        octx.lineTo(p01[0],p01[1]);
+        octx.closePath();
+        octx.fill();
+      }
     }
-    const path=document.createElementNS('http://www.w3.org/2000/svg','path');
-    path.setAttribute('d',d);
-    path.setAttribute('stroke','rgba(255,232,214,0.18)');
-    path.setAttribute('stroke-width','0.7');
-    path.setAttribute('fill','none');
-    g.appendChild(path);
+    ctx.save();
+    ctx.filter = 'blur(1.4px)';
+    ctx.drawImage(off, 0, 0, off.width/dpr, off.height/dpr);
+    ctx.restore();
+
+    // soft glow pass over the peak for extra smoothness
+    ctx.save();
+    ctx.filter = 'blur(6px)';
+    ctx.globalCompositeOperation='soft-light';
+    ctx.globalAlpha=0.55;
+    const [pcx,pcy]=project(COLS/2,ROWS/2,height(COLS/2,ROWS/2));
+    const glow=ctx.createRadialGradient(pcx,pcy,0,pcx,pcy,W*0.32);
+    glow.addColorStop(0,'rgba(255,236,220,0.9)');
+    glow.addColorStop(1,'rgba(255,120,40,0)');
+    ctx.fillStyle=glow;
+    ctx.fillRect(0,0,W,H);
+    ctx.restore();
+
+    // faint contour highlight lines for depth, smoothed via blur
+    ctx.save();
+    ctx.filter='blur(0.6px)';
+    ctx.strokeStyle='rgba(255,232,214,0.16)';
+    ctx.lineWidth=1;
+    for(let gz=0; gz<ROWS; gz+=4){
+      ctx.beginPath();
+      for(let gx=0; gx<COLS; gx++){
+        const [px,py]=project(gx,gz,height(gx,gz));
+        if(gx===0) ctx.moveTo(px,py); else ctx.lineTo(px,py);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
   }
+
+  draw();
+  let resizeTimer;
+  window.addEventListener('resize', ()=>{
+    clearTimeout(resizeTimer);
+    resizeTimer=setTimeout(draw,120);
+  });
 })();
 
 
